@@ -63,21 +63,18 @@ Three additional analyses assess the robustness of the main model comparison.
 
 
 ### Computational validation
+- `original matlab code SS priors Lu et al 2008/`: Contains the original MATLAB code associated with the sparse-and-strong prior implementation of Lu et al. (2008), retained as a reference for the R implementation.
 
-`SS_strength_model_func_all_sampling_methods.R`: Extended implementation of the SS-prior strength model supporting alternative numerical sampling methods.
+- `SS_strength_model_func_all_sampling_methods.R`: Extended implementation of the SS-prior strength model supporting alternative numerical sampling methods.
 
-`ss_prior_sampling_methods_comparison.R`: Compares alternative sampling methods for the SS-prior model. These files are used for computational validation and are not required for reproducing the primary model comparison.
+- `ss_prior_sampling_methods_comparison.R`: Compares alternative sampling methods for the SS-prior model. These files are used for computational validation and are not required for reproducing the primary model comparison.
 
-
-### Original Lu et al. (2008) code
-
-`original matlab code SS priors Lu et al 2008/`: Contains the original MATLAB code associated with the sparse-and-strong prior implementation of Lu et al. (2008), retained as a reference for the R implementation.
+- `visualize_SS_prior_Lu2008_fig2.R`: code for reproducing Figure 2 from Lu et al. (2008)
 
 
 ### Archived files
 
 `_old/`: Contains outdated, exploratory, or superseded files retained to document the development of the project. These files are not required to reproduce the reported analyses.
-
 
 ## Citation
 
