@@ -2,10 +2,9 @@
 
 This repository contains the data, computational models, analysis code, and manuscript source for:
   
-  **Meder, B., Osman, M., Stephan, S., & Waldmann, M. R.**  
-  *Causal Strength Under Structure Uncertainty*
+Meder, B., Osman, M., Stephan, S., & Waldmann, M. R. (2026). Causal strength under structure uncertainty*
   
-  The project investigates how causal strength should be estimated when there is uncertainty about whether a causal relation exists. We compare different quantities derived from Bayesian causal induction, with a particular focus on **structure-averaged causal strength**, which integrates uncertainty about causal structure with uncertainty about causal strength.
+The project investigates how causal strength should be estimated when there is uncertainty about whether a causal relation exists. We compare different quantities derived from Bayesian causal induction, with a particular focus on *structure-averaged causal strength*, which integrates uncertainty about causal structure with uncertainty about causal strength.
 
 The repository provides the materials required to reproduce the main model comparison, robustness checks, and figures reported in the manuscript.
 
@@ -14,9 +13,7 @@ The repository provides the materials required to reproduce the main model compa
 
 ### Manuscript and main analysis
 
-`2026 Causal strength under structure uncertainty.qmd`
-
-Main Quarto manuscript. This is also the authoritative source for the current main analyses, including the primary comparison between:
+`2026 Causal strength under structure uncertainty.qmd`: Main Quarto manuscript. This is also the authoritative source for the current main analyses, including the primary comparison between:
 
 1. structure-averaged causal strength.  
 2. posterior link probability,
@@ -63,7 +60,6 @@ Three additional analyses assess the robustness of the main model comparison.
 `robustness_check_2_model_comparison_Perales_Shanks_2007.R`:  Repeats the model comparison using only the original studies compiled by Perales and Shanks (2007), thereby assessing whether the results depend on the additional studies included in the present data set.
 
 `robustness_check_3_extended_model_comparison.R`: Extends the model comparison by including alternative combinations of structure and parameter priors. In addition to the three primary models, this analysis considers Bayesian strength under a link structure with uniform priors and structure-averaged strength with SS priors.
-
 
 
 ### Computational validation
