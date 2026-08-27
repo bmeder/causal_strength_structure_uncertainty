@@ -1,0 +1,1614 @@
+---
+title: "Causal Strength Under Structure Uncertainty"
+
+author:
+  - name: Björn Meder
+    corresponding: true
+    orcid: 0000-0002-9326-400X
+    email: bjoern.meder@hmu-potsdam.de
+    affiliations:
+      - name: HMU Health and Medical University
+        department: Institute for Mind, Brain, and Behavior
+        address: Olympischer Weg 1
+        city: Potsdam
+        country: Germany
+        postal-code: 14471
+
+  - name: Magda Osman
+    affiliations:
+      - name: Cambridge University
+        department: Judge Business School
+        city: Cambridge
+        country: United Kingdom
+      - name: University of Leeds
+        department: Centre for Decision Research, Leeds Business School
+        city: Leeds
+        country: United Kingdom
+
+  - name: Simon Stephan
+    affiliations:
+      - name: University of Göttingen
+        department: Department of Psychology
+        city: Göttingen
+        country: Germany
+
+  - name: Michael R. Waldmann
+    affiliations:
+      - name: University of Göttingen
+        department: Department of Psychology
+        city: Göttingen
+        country: Germany
+
+abstract: "How should one estimate the magnitude of a causal influence when it is uncertain whether the causal link exists? We address this question using the framework of Bayesian causal induction. Existing accounts have primarily focused either on inference about causal structure or on estimation of causal strength under an assumed structure. We propose structure-averaged causal strength as a method for estimating causal strength under structure uncertainty. By averaging strength across alternative causal structures according to their posterior probabilities, the account provides a normative estimate that reflects uncertainty about both whether a causal relation exists and how strong it is. The account integrates structural inference and strength estimation within a computational framework that represents uncertainty about both strength and structure. Normatively, our analyses clarify how causal strength should be estimated when the existence of the causal relation itself remains uncertain. Empirically, structure-averaged strength provided accurate predictions of human judgments of causal influence across a broad set of published studies, suggesting that human causal judgments reflect uncertainty about both causal strength and causal structure. Together, our analyses show how inferences about causal structure shape judgments of causal strength under uncertainty."
+
+keywords:
+  - causal learning
+  - causal induction
+  - causal structure
+  - Bayesian models
+
+bibliography: causal_strength_under_structure_uncertainty.bib
+
+format:
+  html:
+    toc: true
+    toc-expand: 1
+    theme: flatly
+    code-fold: true
+    toc-location: left
+    lightbox: true
+    number-sections: true
+    number-depth: 3
+    embed-resources: true
+    grid:
+      sidebar-width: 300px
+      body-width: 1000px
+      margin-width: 200px
+      gutter-width: 1.5rem
+
+wordcount: true
+---
+
+
+```{r setup, results='hide', message=FALSE, warning=FALSE}
+# Housekeeping
+knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(message = FALSE)
+knitr::opts_chunk$set(warning = FALSE)
+knitr::opts_chunk$set(fig.aligned='center')
+
+options(knitr.kable.NA = '')
+options(scipen=999)
+
+# required R packages
+packages <- c('gridExtra', 'tidyverse', "cowplot", "kableExtra", "scales")
+install.packages(setdiff(packages, rownames(installed.packages())))
+sapply(packages, require, character.only = TRUE)
+
+
+set.seed(0815)
+
+colors_models <- c(
+  "Posterior link\nprobability" = "#009E73",
+  "Structure-averaged\nstrength" = "#D55E00",
+  "Bayesian strength\n(SS priors)" = "#56B4E9"
+)
+
+# some labels and colors for plotting
+lab_S1_low  <- "atop('Low prior belief in causal link', italic(P)(italic(S)[1])==0.1)"
+lab_S1_med  <- "atop('Medium prior belief causal in link', italic(P)(italic(S)[1])==0.5)"
+lab_S1_high <- "atop('High prior belief in causal link', italic(P)(italic(S)[1])==0.9)"
+
+
+source("structure_induction_func.R") # functions for generating predictions of the structure induction (SI) model (Meder et al., 2014, 2026)
+source("SS_strength_model_func.R") # functions for generating causal strength estimates under S1 given sparse and strong (SS) priors (Lu et al, 2008, Psych Review)
+source("meta_analysis_preprocessing.R") # reads data for meta analysis from various data files stored in directory "data"
+
+
+```
+ 
+
+
+# Overview
+
+This document provides the analyses and code required to reproduce the results shown in Figures 3–5 of the manuscript. Reproduction code for Figures 1 and 2 is provided separately in the corresponding R scripts (`figure1.R` and `figure2.R`, respectively). The complete project repository is available at https://github.com/bmeder/causal_strength_structure_uncertainty. This document was generated with Quarto and combines explanatory text with the R code used to conduct the analyses and generate the figures.
+
+Model code for computing structure-averaged strength can be found in `structure_induction_func.R`. R code for Bayesian strength estimation under sparse-and-strong (SS) priors (Lu et al., 2008, Psychological Review) can be found in `SS_strength_model_func.R`. 
+
+
+
+
+
+# Structure-Averaged Strength Under Zero Contingency
+
+The following code reproduces Figure 3 from the paper.
+
+```{r}
+# -------------------------------------------------------------------------
+# Zero-contingency simulations across outcome density
+# -------------------------------------------------------------------------
+# All conditions satisfy:
+# P(e | c) = P(e | not c)
+#
+# The link hypothesis is noisy-OR (generative) S1 versus S0.
+#
+# Model predictions:
+# 1. Posterior link probability
+# 2. Conditional Bayesian strength under S1 with SS priors
+# 3. Structure-averaged strength
+# -------------------------------------------------------------------------
+
+# --- Simulation parameters ----------------------------------------------
+
+m <- 10^6
+
+outcome_density_levels <- seq(0.1, 0.9, by = 0.1)
+sample_sizes <- 40
+
+# -------------------------------------------------------------------------
+# Construct zero-contingency data
+# -------------------------------------------------------------------------
+# P(c) = P(not c) = .5
+#
+# Cell order:
+# [N_00, N_01, N_10, N_11]
+#
+# N_00 = N(not c, not e)
+# N_01 = N(not c, e)
+# N_10 = N(c, not e)
+# N_11 = N(c, e)
+
+design_data <- expand_grid(
+  outcome_density = outcome_density_levels,
+  N = sample_sizes
+) %>%
+  mutate(
+    N_c = N / 2,
+    N_not_c = N / 2,
+    
+    N_11 = round(N_c * outcome_density),
+    N_10 = N_c - N_11,
+    
+    N_01 = round(N_not_c * outcome_density),
+    N_00 = N_not_c - N_01
+  ) %>%
+  select(
+    outcome_density,
+    N,
+    N_00, N_01, N_10, N_11
+  )
+
+
+df_freq <- design_data %>%
+  select(N_00, N_01, N_10, N_11) %>%
+  as.matrix()
+
+
+# -------------------------------------------------------------------------
+# Structure-induction predictions
+# -------------------------------------------------------------------------
+# SI predictions are computed separately for each structure prior.
+# Parameter priors within S0 and S1 are uniform.
+#
+# The zero-contingency hypothesis space contains:
+# S0: no link
+# S1: noisy-OR generative link
+
+set.seed(0815)
+
+  SI_density <- generate_SI_preds(
+        data = df_freq,
+        m = m,
+        S1_prior = 0.5,
+        model_type = "noisy_or_generative"
+      ) %>%
+        bind_cols(
+          design_data %>%
+            select(outcome_density)
+        ) %>%
+        
+        select(
+          outcome_density,
+          S1_prior,
+          N,
+          N_00, N_01, N_10, N_11,
+          S0_marglik, S1_marglik,
+          S0_pp, S1_pp,
+          S1_wc_pp,
+          SI_mean_wc
+        )
+    
+
+# -------------------------------------------------------------------------
+# Conditional strength under S1 with sparse-and-strong priors
+# -------------------------------------------------------------------------
+# This model conditions on S1 and therefore does not use a structure prior.
+# It is computed once for each outcome-density × sample-size condition.
+
+  set.seed(0815)
+  
+  SS_density <- generate_SS_strength_preds(
+    data = df_freq,
+    m = m,
+    alpha = 5,
+    model_type = "noisy_or_generative"
+  ) %>%
+    bind_cols(
+      design_data %>%
+        select(outcome_density)
+    ) %>%
+    select(
+      outcome_density,
+      N,
+      N_00, N_01, N_10, N_11,
+      SS_wc_pp,
+      SS_marglik,
+      SS_logmarglik
+    )
+  
+
+# -------------------------------------------------------------------------
+# Combine model predictions
+# -------------------------------------------------------------------------
+
+df_density <- SI_density %>%
+  left_join(
+    SS_density,
+    by = c(
+      "outcome_density",
+      "N",
+      "N_00", "N_01", "N_10", "N_11"
+    )
+  ) %>%
+  mutate(
+    posterior_link = S1_pp,
+    strength_SS = SS_wc_pp,
+    structure_averaged = SI_mean_wc
+  )
+
+```
+
+
+```{r}
+#| fig-width: 5
+#| fig-height: 3
+#| label: fig-outcome-density
+#| fig-cap: "Posterior link probability, Bayesian strength under SS priors, and structure-averaged strength for zero-contingency data as a function of outcome density."
+
+# -------------------------------------------------------------------------
+# Prepare plotting data
+# -------------------------------------------------------------------------
+
+df_density_plot_long <- 
+  df_density %>%
+  select(
+    outcome_density,
+    posterior_link,
+    strength_SS,
+    structure_averaged
+  ) %>%
+  pivot_longer(
+    cols = c(
+      posterior_link,
+      strength_SS,
+      structure_averaged
+    ),
+    names_to = "model",
+    values_to = "prediction"
+  ) %>%
+  mutate(
+    model = recode(
+      model,
+      posterior_link =
+        "Posterior link probability",
+      strength_SS =
+        "Bayesian strength (SS priors)",
+      structure_averaged =
+        "Structure-averaged strength"
+    ),
+    model = factor(
+      model,
+      levels = c(
+        "Structure-averaged strength",
+        "Bayesian strength (SS priors)",
+        "Posterior link probability"
+      )
+    )
+  )
+
+
+# -------------------------------------------------------------------------
+# Plot
+# -------------------------------------------------------------------------
+
+colors_models_density <- c(
+  "Posterior link probability" = "#009E73",
+  "Bayesian strength (SS priors)" = "#56B4E9",
+  "Structure-averaged strength" = "#D55E00"
+)
+
+shapes_models_density <- c(
+  "Posterior link probability" = 21,
+  "Bayesian strength (SS priors)" = 22,
+  "Structure-averaged strength" = 24
+)
+
+p_outcome_density <- 
+  ggplot(
+  df_density_plot_long,
+  aes(
+    x = outcome_density,
+    y = prediction * 100,
+    group = model,
+    colour = model,
+    fill = model,
+    shape = model
+  )
+) +
+  geom_line(
+    linewidth = 1
+  ) +
+  geom_point(
+    size = 3,
+    colour = "black",
+    stroke = 0.5
+  ) +
+    scale_x_continuous(
+      name = expression(
+        "Outcome density:" ~
+          italic(P)(italic(e)) * "=" *
+          italic(P)(italic(e) ~ "|" ~ italic(c)) * "=" *
+          italic(P)(italic(e) ~ "|" ~ "¬" ~ italic(c))
+      ),
+      breaks = outcome_density_levels,
+      labels = outcome_density_levels
+    ) +
+  scale_y_continuous(
+    name = "Model prediction",
+    limits = c(0, 100),
+    breaks = c(0, 25, 50, 75, 100),
+    expand = expansion(mult = c(0, 0.02))
+  ) +
+  scale_colour_manual(
+    values = colors_models_density
+  ) +
+  scale_fill_manual(
+    values = colors_models_density
+  ) +
+  scale_shape_manual(
+    values = shapes_models_density
+  ) +
+  theme_classic() +
+    theme(
+      plot.title = element_text(size = 18),
+      axis.text = element_text(color = "black", size =12),  
+      axis.title = element_text(color = "black", size =14),
+      axis.text.x = element_text(),  
+      panel.grid = element_blank(),  
+      axis.ticks.y = element_blank(), 
+      axis.line.y = element_line(color = "black"),
+      strip.text =  element_text(size = 14, colour="black"), 
+      strip.background =element_blank(),
+      legend.key.height = unit(0.9, "lines"),
+      legend.background = element_rect(fill = "transparent", colour = NA),
+      legend.box.background = element_rect(fill = "transparent", colour = NA),
+      legend.title = element_blank(),
+      legend.position="inside",
+      legend.text = element_text(size = 12),
+      legend.position.inside = c(0.3, 0.85),
+      panel.spacing = unit(1.2, "lines")
+    ) 
+  
+p_outcome_density
+
+ggsave(
+  filename = "plots/fig3_outcome_density_predictions.png",
+  plot = p_outcome_density,
+  dpi = 300,
+  width = 5,
+  height = 3
+)
+
+ggsave(
+  filename = "plots/fig3_outcome_density_predictions.pdf",
+  plot = p_outcome_density,
+  width = 5,
+  height = 3
+)
+
+```
+
+# Structure-Averaged Strength and Human Judgments {#sec-human-judgments-reanalysis}
+
+The following code reproduces Figures 3 and 5 from the paper.
+
+Get data from publsihed studies:
+
+```{r}
+#| label: tbl-model-data
+#| tbl-cap: "Overview of the causal learning studies included in the model comparison."
+#| echo: false
+#| warning: false
+#| message: false
+#| 
+
+source("meta_analysis_preprocessing.R") # reads data for meta analysis from various csv files stored in directory "data"
+
+# --- get data for meta analysis --------------
+df_data <- meta_analysis_preprocessing()
+
+if (knitr::is_html_output()) {
+
+  df_data %>%
+    select(-c(id, reference)) %>% 
+    knitr::kable(
+      format = "html",
+      digits = 2,
+      na = ""
+    ) %>%
+    kableExtra::kable_styling(
+      bootstrap_options = c("striped", "hover", "condensed"),
+      full_width = TRUE
+    ) %>% 
+    kableExtra::scroll_box(
+      height = "400px",
+      width = "100%"
+    )
+
+} else {
+
+  data.frame(
+    Note = "The complete table is available in the HTML version."
+  ) %>%
+    knitr::kable(
+      format = "pipe"
+    )
+}
+
+#########################
+# not run: various info on data set
+#########################
+# df_data %>%
+#   select(-c(id, reference)) %>% 
+#   knitr::kable(
+#     digits = 2,
+#     booktabs = TRUE,
+#     na = ""
+#   ) %>%
+#   kable_styling(bootstrap_options = c("striped", "hover", "condensed"),
+#                 full_width = TRUE) %>% 
+#   scroll_box(height = "400px", width = "100%")
+
+
+# Studies: distinct values of study
+# Experiments: distinct combinations of study and experiment
+# Conditions: rows in the final dataset
+# Proportions: proportions of experimental conditions, not participants
+
+# number of publications
+# df_data %>%
+#   summarise(n = n_distinct(reference)) %>%
+#   pull(n)
+
+# number of conditions across all studies
+# df_data %>%
+#   summarise(n = n_distinct(id)) 
+
+# number of experiments across all studies
+# df_data %>%
+#   group_by(study) %>% 
+#   summarise(n = n_distinct(experiment)) %>% 
+#   summarise(experiments = sum(n))
+
+# number of contingency conditions
+# contingency_summary <-
+  # df_data %>%
+  # count(sample_direction, name = "n_conditions") %>%
+  # mutate(
+  #   proportion = n_conditions / sum(n_conditions),
+  #   percent = round(100 * proportion, 1)
+  # )
+
+# total number of participants: sum over experiments
+    # df_data  %>%
+    # distinct(study, experiment, n) %>%
+    # group_by(study) %>%
+    # summarise(
+    #   total_n = sum(n, na.rm = TRUE),
+    #   n_experiments = n(),
+    #   n_missing = sum(is.na(n)),
+    #   .groups = "drop"
+    # ) %>% 
+    # summarise(total_n = sum(total_n))
+    
+# experimental framing 
+  # df_data %>%
+  # count(framing, name = "n_conditions") %>%
+  # mutate(
+  #   proportion = n_conditions / sum(n_conditions),
+  #   percent = round(100 * proportion, 1)
+  # )
+  
+```
+
+
+Generate model predictions:
+
+```{r}
+# Model comparison: get model predictions
+
+# --- make df with all experimental conditions (cell frequencies) --------------
+# cell input order for models: [d,c,b,a] = [N_00,N_01,N_10,N_11]
+df_freq <- df_data %>% 
+  select(N_00,  N_01, N_10, N_11) %>% 
+  as.matrix()
+
+# --- Generate SI predictions in the same row order as df_data --------------
+# generate SI predictions under uniform priors for structure, P(S1)=P(S0)=0.5
+
+m <- 10^6 # numbr of Monte Carlo samples
+
+# generative (noisy-OR)
+set.seed(0815)
+SI_gen <- generate_SI_preds(
+  df_freq,
+  m = m,
+  S1_prior = 0.5,
+  model_type = "noisy_or_generative"
+) %>%
+  mutate(id = factor(row_number())) %>%
+  select(
+    id,
+    N, N_00, N_01, N_10, N_11,
+    BF10, logBF10,
+    S0_marglik, S1_marglik,
+    S0_logmarglik, S1_logmarglik,
+    S0_pp, S1_pp,
+    S1_wc_pp,
+    SI_mean_wc
+  ) %>%
+  rename(
+    BF10_gen = BF10,
+    logBF10_gen = logBF10,
+    S0_marglik_gen = S0_marglik,
+    S1_marglik_gen = S1_marglik,
+    S0_logmarglik_gen = S0_logmarglik,
+    S1_logmarglik_gen = S1_logmarglik,
+    S0_pp_gen = S0_pp,
+    S1_pp_gen = S1_pp,
+    S1_wc_pp_gen = S1_wc_pp,
+    SI_mean_wc_gen = SI_mean_wc
+  )
+
+# preventive (noisy-AND-NOT)
+set.seed(0815)
+SI_prev <- generate_SI_preds(
+  df_freq,
+  m = m,
+  S1_prior = 0.5,
+  model_type = "noisy_and_not_preventive"
+) %>%
+  mutate(id = factor(row_number())) %>%
+  select(
+    id,
+    N, N_00, N_01, N_10, N_11,
+    BF10, logBF10,
+    S0_marglik, S1_marglik,
+    S0_logmarglik, S1_logmarglik,
+    S0_pp, S1_pp,
+    S1_wc_pp,
+    SI_mean_wc
+  ) %>%
+  rename(
+    BF10_prev = BF10,
+    logBF10_prev = logBF10,
+    S0_marglik_prev = S0_marglik,
+    S1_marglik_prev = S1_marglik,
+    S0_logmarglik_prev = S0_logmarglik,
+    S1_logmarglik_prev = S1_logmarglik,
+    S0_pp_prev = S0_pp,
+    S1_pp_prev = S1_pp,
+    S1_wc_pp_prev = S1_wc_pp,
+    SI_mean_wc_prev = SI_mean_wc
+  )
+
+# --- Generate SS priors prediction: posterior causal strength under S1 given sparse and strong priors (Lu et al., 2008) --------------
+# only structure S1 is considered
+# generative or preventive SS prior over wc and wa:
+# base rate bc sampled from uniform Beta(1,1) prior as in SI model
+
+# generative (noisy-OR)
+set.seed(0815)
+SS_gen <- generate_SS_strength_preds(
+  df_freq,
+  m = m,
+  alpha = 5,
+  model_type = "noisy_or_generative"
+) %>%
+  mutate(id = factor(row_number())) %>%
+  select(id, 
+         N, N_00, N_01, N_10, N_11,
+         SS_wc_pp, SS_marglik, SS_logmarglik) %>%
+  rename(SS_wc_pp_gen = SS_wc_pp,
+         SS_marglik_gen = SS_marglik,
+         SS_logmarglik_gen = SS_logmarglik)
+
+# preventive (noisy-AND-NOT)
+set.seed(0815)
+SS_prev <- generate_SS_strength_preds(
+  df_freq,
+  m = m,
+  alpha = 5,
+  model_type = "noisy_and_not_preventive"
+) %>%
+  mutate(id = factor(row_number())) %>%
+  select(id, 
+         N, N_00, N_01, N_10, N_11,
+         SS_wc_pp, SS_marglik, SS_logmarglik) %>%
+  rename(SS_wc_pp_prev = SS_wc_pp,
+         SS_marglik_prev = SS_marglik,
+         SS_logmarglik_prev = SS_logmarglik)
+
+# --- reference table with all relevant info --------------------------
+model_predictions <- df_data %>%
+  #select(study, experiment, id, a, b, c, d, deltaP, type_deltaP, rating) %>%
+  select(-reference) %>%
+  left_join(SI_gen, by = c("id", "N_00",  "N_01", "N_10", "N_11")) %>%
+  left_join(SI_prev, by = c("id", "N_00",  "N_01", "N_10", "N_11", "N")) %>%
+  left_join(SS_gen, by = c("id", "N_00",  "N_01", "N_10", "N_11", "N")) %>%
+  left_join(SS_prev, by = c("id", "N_00",  "N_01", "N_10", "N_11", "N")) %>%
+  rename(human = rating)
+
+
+# --- generate model predictions -----------------------------------------
+# specify which functional form is used (e.g. generative via noisy-OR or preventive via noisy-AND-NOT)
+# using the framing of the causal inference context
+# generative: participants' task was to infer a generative relation (e.g. on a scale from 0-100)
+# preventive: participants' task was to infer a preventive relation (e.g. on a scale from -100 to 0)
+# bidirectional: participants' were informed that the relation could be positive or negative (e.g. on a scale from -100  to +100)
+# In bidirectional conditions, generative and preventive predictions are combined using their posterior or marginal-likelihood weights
+
+model_predictions <- model_predictions %>%
+  mutate(
+   
+    # ------------------------------------------------------------------
+    # Posterior link probability and signed response prediction
+    # ------------------------------------------------------------------
+    # For bidirectional framing, following Griffiths and Tenenbaum
+    # (2009, pp. 681–682), jointly compare three structures using a
+    # uniform prior:
+    #   P(S0)            = 1/3
+    #   P(S1_generative) = 1/3
+    #   P(S1_preventive) = 1/3
+    
+    # Unnormalized structure posteriors:
+    # marginal likelihood multiplied by structure prior.
+    SI_bidir_S0_unnorm = (1/3) * S0_marglik_gen,
+    SI_bidir_S1_gen_unnorm = (1/3) * S1_marglik_gen,
+    SI_bidir_S1_prev_unnorm = (1/3) * S1_marglik_prev,
+
+    # Common normalizing constant for the three structures.
+    SI_bidir_normalizer = SI_bidir_S0_unnorm + SI_bidir_S1_gen_unnorm +  SI_bidir_S1_prev_unnorm,
+    
+    # Posterior probabilities of the three structures.
+    SI_bidir_S0_pp = SI_bidir_S0_unnorm / SI_bidir_normalizer, # structure S0
+    SI_bidir_S1_gen_pp = SI_bidir_S1_gen_unnorm / SI_bidir_normalizer, # S1 generative
+    SI_bidir_S1_prev_pp = SI_bidir_S1_prev_unnorm / SI_bidir_normalizer, # S1 preventive
+    
+    # check
+    # model_predictions$SI_bidir_S1_gen_pp + model_predictions$SI_bidir_S1_prev_pp + model_predictions$SI_bidir_S0_pp
+    
+    # Posterior probability that some causal link exists,
+    # irrespective of whether it is generative or preventive.
+    SI_bidir_link_pp = SI_bidir_S1_gen_pp + SI_bidir_S1_prev_pp,
+    
+    # Equivalent:SI_bidir_link_pp = 1 - SI_bidir_S0_pp
+    
+    # Prediction on the signed -100 to +100 response scale.
+    # For bidirectional framing, Griffiths and Tenenbaum map the
+    # three-structure posterior to:
+    # -100 * P(S1_preventive | D) + 100 * P(S1_generative | D).
+    S1_pp_prediction = case_when(
+      framing == "generative" ~ S1_pp_gen * 100,
+      framing == "preventive" ~ -S1_pp_prev * 100,
+      framing == "bidirectional" ~ -100 * SI_bidir_S1_prev_pp + 100 * SI_bidir_S1_gen_pp
+    ),
+    
+    # ------------------------------------------------------------------
+    # Mean posterior strength under S1 with sparse-and-strong (SS) priors over w_a and w_c (Lu et al, 2008)
+    # ------------------------------------------------------------------
+    
+    # Version 1: sparse-and-strong (SS) priors over w_a and w_c (Lu et al, 2008)
+    # for generative and preventive framing the corresponding S1 model (noisy-or vs. noisy-and-not) are used
+    # For bidirectional judgments, following Lu et al. (2008, Eq. 15, p.968),
+    # the positive generative and negative preventive posterior mean
+    # strengths are averaged using P(g | D), with g={S1_generative, S1_preventive}
+    # obtained by normalizing the generative and preventive S1 marginal likelihoods under SS priors.
+    SS_gen_direction_pp = SS_marglik_gen / (SS_marglik_gen + SS_marglik_prev),
+    SS_prev_direction_pp = SS_marglik_prev / (SS_marglik_gen + SS_marglik_prev),
+    
+    SS_wc_prediction = case_when(
+      framing == "generative" ~ SS_wc_pp_gen * 100,
+      framing == "preventive" ~ SS_wc_pp_prev * -100,
+      framing == "bidirectional" ~
+        SS_gen_direction_pp  * (SS_wc_pp_gen  * 100) +
+        SS_prev_direction_pp * (SS_wc_pp_prev *-100)
+    ),
+    
+    # ------------------------------------------------------------------
+    # SI mode: Structure-averaged strength
+    # ------------------------------------------------------------------
+    # this approach considers S0 and S1 (generative and preventive parameterization, respectively)
+    # for generative and preventive framing, with uniform prior over structures, P(S0)=P(S1)=0.5
+    # For bidirectional framing, following Griffiths & Tenenbaum (2009) we use a uniform prior over all three structures:
+    #   P(S0)            = 1/3
+    #   P(S1_generative) = 1/3
+    #   P(S1_preventive) = 1/3
+   
+    # S0 is the same model in the generative and preventive SI runs,
+    # so only one S0 marginal likelihood is used. sanity check:
+    # all.equal(model_predictions$S0_marglik_gen, model_predictions$S0_marglik_prev)
+    
+    # these quantitities are computed above 
+    # Compute the unnormalized posterior probability of each structure
+    # as marginal likelihood × structure prior.
+    # SI_bidir_S0_unnorm =  1/3 * S0_marglik_gen,
+    # SI_bidir_S1_gen_unnorm =  1/3 * S1_marglik_gen,
+    # SI_bidir_S1_prev_unnorm =  1/3 * S1_marglik_prev,
+    # 
+    # Normalize across all three structures so that their posterior
+    # probabilities sum to 1.
+    # SI_bidir_normalizer = SI_bidir_S0_unnorm + SI_bidir_S1_gen_unnorm + SI_bidir_S1_prev_unnorm,
+    
+    # SI_bidir_S0_pp = SI_bidir_S0_unnorm / SI_bidir_normalizer, 
+    # SI_bidir_S1_gen_pp = SI_bidir_S1_gen_unnorm / SI_bidir_normalizer,
+    # SI_bidir_S1_prev_pp =  SI_bidir_S1_prev_unnorm / SI_bidir_normalizer,
+    # 
+    # Bayesian model average of causal strength across the three structures:
+    # generative strength enters positively, preventive strength negatively,
+    # and S0 contributes zero.
+    
+    SI_mean_wc_prediction = case_when(
+      framing == "generative" ~ SI_mean_wc_gen * 100,
+      framing == "preventive" ~ SI_mean_wc_prev * -100,
+      framing == "bidirectional" ~
+        SI_bidir_S1_gen_pp  * ( S1_wc_pp_gen  * 100) +
+        SI_bidir_S1_prev_pp * (S1_wc_pp_prev * -100) +
+        SI_bidir_S0_pp      * 0
+    )
+  )
+
+```
+
+## Model comparison across studies
+@fig-model_comparison shows model performance across several studies
+
+```{r}
+#| fig-width: 9 # 16
+#| fig-height: 8 # 6
+#| label: fig-model_comparison
+#| fig-cap: "Predictive accuracy of models for several published studies."
+# -------------------------------------------------------------------------
+# Model predictions in long format ----------------------------------------
+# -------------------------------------------------------------------------
+
+model_predictions_long <- model_predictions %>%
+  select(
+    study,
+    human,
+    sample_direction,
+    S1_pp_prediction,
+    SS_wc_prediction,
+    SI_mean_wc_prediction
+  ) %>%
+  pivot_longer(
+    cols = -c(study, human, sample_direction),
+    names_to = "model",
+    values_to = "prediction"
+  ) %>%
+  filter(
+    !is.na(human),
+    !is.na(prediction)
+  ) %>%
+  mutate(
+    model = recode(
+      model,
+      S1_pp_prediction =
+        "Posterior link\nprobability",
+      SS_wc_prediction =
+        "Bayesian strength\n(SS priors)",
+      SI_mean_wc_prediction =
+        "Structure-averaged\nstrength"
+    ),
+    model = factor(
+      model,
+      levels = c(
+        "Structure-averaged\nstrength",
+        "Posterior link\nprobability",
+        "Bayesian strength\n(SS priors)"
+      )
+    ),
+    sample_direction = recode(
+      sample_direction,
+      "generative" = "Positive\ncontingency",
+      "zero"       = "Zero\ncontingency",
+      "preventive" = "Negative\ncontingency"
+    )
+  )
+
+
+# -------------------------------------------------------------------------
+# Correlations between model predictions and human ratings
+# -------------------------------------------------------------------------
+
+# --- Overall pooled correlation per model ------------------------------------
+# This treats each condition as one observation and weights larger studies more.
+
+model_correlations_overall <- model_predictions %>%
+  select(
+    human,
+    S1_pp_prediction,
+    SS_wc_prediction,
+    SI_mean_wc_prediction
+  ) %>%
+  pivot_longer(
+    cols = -human,
+    names_to = "model",
+    values_to = "prediction"
+  ) %>%
+  filter(!is.na(human), !is.na(prediction)) %>%
+  mutate(
+    model = recode(
+      model,
+      S1_pp_prediction      = "Posterior link\nprobability",
+      SS_wc_prediction      = "Bayesian strength\n(SS priors)",
+      SI_mean_wc_prediction = "Structure-averaged\nstrength"
+    )
+  ) %>%
+  group_by(model) %>%
+  summarise(
+    study = "All studies pooled",
+    n = n(),
+    test = list(cor.test(human, prediction, method = "pearson")),
+    .groups = "drop"
+  ) %>%
+  mutate(
+    r = map_dbl(test, ~ unname(.x$estimate)),
+    CI_low = map_dbl(test, ~ .x$conf.int[1]),
+    CI_high = map_dbl(test, ~ .x$conf.int[2]),
+    row_type = "Overall pooled"
+  ) %>%
+  select(-test)
+
+# --- Correlations by study ---------------------------------------------------
+# Note: Fisher-z confidence intervals require n > 3.
+# Studies with too few conditions, e.g. Shanks & Perales (2004), are retained but have no CI.
+
+# -------------------------------------------------------------------------
+# Mean correlation across studies: plain average --------------------------
+# -------------------------------------------------------------------------
+# This gives each study equal weight and averages raw study-level correlations.
+
+model_correlations_by_study <- model_predictions %>%
+  select(
+    study,
+    human,
+    S1_pp_prediction,
+    SS_wc_prediction,
+    SI_mean_wc_prediction
+  ) %>%
+  pivot_longer(
+    cols = -c(study, human),
+    names_to = "model",
+    values_to = "prediction"
+  ) %>%
+  filter(!is.na(human), !is.na(prediction)) %>%
+  mutate(
+    model = recode(
+      model,
+      S1_pp_prediction      = "Posterior link\nprobability",
+      SS_wc_prediction      = "Bayesian strength\n(SS priors)",
+      SI_mean_wc_prediction = "Structure-averaged\nstrength"
+    )
+  ) %>%
+  group_by(study, model) %>%
+  summarise(
+    n = n(),
+    r = cor(
+      human,
+      prediction,
+      use = "pairwise.complete.obs"
+    ),
+    test = list(
+      if (
+        n() >= 4 &&
+        sd(human, na.rm = TRUE) > 0 &&
+        sd(prediction, na.rm = TRUE) > 0
+      ) {
+        cor.test(
+          human,
+          prediction,
+          method = "pearson"
+        )
+      } else {
+        NULL
+      }
+    ),
+    .groups = "drop"
+  ) %>%
+  mutate(
+    CI_low = map_dbl(
+      test,
+      \(x) if (is.null(x)) NA_real_ else unname(x$conf.int[1])
+    ),
+    CI_high = map_dbl(
+      test,
+      \(x) if (is.null(x)) NA_real_ else unname(x$conf.int[2])
+    )
+  ) %>%
+  select(-test) %>%
+  arrange(model, desc(r))
+
+# --- Mean correlation across studies: plain average --------------------------
+# This gives each study equal weight and averages raw study-level correlations.
+
+model_correlations_mean_study <- model_correlations_by_study %>%
+  filter(!is.na(r), is.finite(r)) %>%
+  group_by(model) %>%
+  summarise(
+    study = "Mean across studies",
+    r_mean = mean(r),
+    r_sd = sd(r),
+    n = n(),
+    r_se = r_sd / sqrt(n),
+    CI_low = r_mean - 1.96 * r_se,
+    CI_high = r_mean + 1.96 * r_se,
+    n = sum(n, na.rm = TRUE),
+    row_type = "mean across studies",
+    .groups = "drop"
+  ) %>%
+  rename(r = r_mean)
+
+
+# --- Combine study-level, pooled, and mean across studies ------------
+study_order <- model_correlations_by_study %>%
+  filter(model == "Structure-averaged\nstrength") %>%
+  mutate(study_year = as.numeric(stringr::str_extract(study, "\\d{4}"))) %>%
+  arrange(desc(study_year), desc(study)) %>%
+  pull(study)
+
+
+model_correlations_forest <- model_correlations_by_study %>%
+  mutate(row_type = "study") %>%
+  bind_rows(
+    model_correlations_overall %>%
+      mutate(
+        study = "All studies pooled",
+        row_type = "overall pooled"
+      )
+  ) %>%
+  bind_rows(select(model_correlations_mean_study, -c(r_sd,r_se))) %>%
+  mutate(
+    study = factor(
+      study,
+      levels = c(
+        "All studies pooled",
+        "Mean across studies",
+        study_order
+      )
+    ),
+    overall_label = case_when(
+      row_type == "overall pooled" ~ paste0("r = ", sprintf("%.2f", r)),
+      row_type == "mean across studies" ~ paste0("r = ", sprintf("%.2f", r)),
+      TRUE ~ NA_character_
+    ),
+    label_x = case_when(
+      row_type %in% c("overall pooled", "mean across studies") & r > 0.75 ~ r - 0.18,
+      row_type %in% c("overall pooled", "mean across studies") ~ r + 0.08,
+      TRUE ~ NA_real_
+    ),
+    label_hjust = case_when(
+      row_type %in% c("overall pooled", "mean across studies") & r > 0.75 ~ 1,
+      row_type %in% c("overall pooled", "mean across studies") ~ 0,
+      TRUE ~ NA_real_
+    )
+  ) %>% 
+  mutate(
+    model = recode(
+      model,
+      S1_pp_prediction            = "Posterior link\nprobability",
+      SS_wc_prediction            = "Bayesian strength\n(SS priors)",
+      SI_mean_wc_prediction       = "Structure-averaged\nstrength"
+    )
+  ) %>%
+  mutate(
+    model = factor(model, levels = c(
+      "Structure-averaged\nstrength",
+      "Posterior link\nprobability",
+      "Bayesian strength\n(SS priors)"
+    ))) 
+
+# -------------------------------------------------------------------------
+# Plot correlations by study --------------------------------------
+# -------------------------------------------------------------------------
+# order models
+
+plot_r_by_study <- ggplot(model_correlations_forest, aes(x = r, y = study, color = model)) +
+  facet_wrap(~ model, nrow = 1) +
+  geom_vline(xintercept = 0, linetype = "dashed", linewidth = 0.4) +
+  geom_errorbar(
+    aes(xmin = CI_low, xmax = CI_high),
+    height = 0.15,
+    linewidth = 0.6,
+    na.rm = TRUE,
+    orientation = "y"
+  ) +
+  geom_point(
+    aes(shape = row_type, size = row_type),
+    na.rm = TRUE
+  ) +
+  geom_text(
+    aes(x = label_x, label = overall_label, hjust = label_hjust),
+    size = 3,
+    color = "black",
+    na.rm = TRUE
+  ) +
+  coord_cartesian(xlim = c(-1, 1), clip = "off") +
+  scale_color_manual(values = colors_models) +
+  scale_shape_manual(
+    values = c(
+      "study" = 16,
+      "overall pooled" = 18,
+      "mean across studies" = 15
+    )
+  ) +
+  scale_size_manual(
+    values = c(
+      "study" = 2.2,
+      "overall pooled" = 3.8,
+      "mean across studies" = 3.5
+    )
+  ) +
+  labs(
+    x = "Correlation with human ratings (r)",
+    y = NULL
+  ) +
+  theme_classic() +
+  theme(
+    legend.position = "none",
+    strip.background = element_blank(),
+    strip.text = element_text(size = 10, face = "bold"),
+    axis.text.y = element_text(size = 8),
+    plot.margin = margin(5.5, 35, 5.5, 5.5)
+  )
+
+ggsave("plots/model_comparison_cor.png", plot_r_by_study, dpi = 300, width= 13, height = 4)
+ggsave("plots/model_comparison_cor.pdf", plot_r_by_study, width= 13, height = 4)
+
+# -------------------------------------------------------------------------
+# Root mean squared error (RMSE) between model predictions and human ratings
+# -------------------------------------------------------------------------
+
+
+# --- Overall pooled RMSE per model -------------------------------------------
+# This treats each condition as one observation and thus weights larger studies more.
+# The RMSE CI is approximated with the delta method applied to MSE.
+
+model_rmse_overall <- model_predictions %>%
+  select(
+    study,
+    human,
+    S1_pp_prediction,
+    SS_wc_prediction,
+    SI_mean_wc_prediction
+  ) %>%
+  pivot_longer(
+    cols = -c(study, human),
+    names_to = "model",
+    values_to = "prediction"
+  ) %>% 
+  filter(!is.na(human), !is.na(prediction)) %>%
+  mutate(
+    sq_error = (human - prediction)^2,
+    model = recode(
+      model,
+      S1_pp_prediction            = "Posterior link\nprobability",
+      SS_wc_prediction            = "Bayesian strength\n(SS priors)",
+      SI_mean_wc_prediction       = "Structure-averaged\nstrength"
+    )
+  ) %>%
+  group_by(model) %>%
+  summarise(
+    study = "All studies pooled",
+    mse = mean(sq_error, na.rm = TRUE),
+    mse_sd = sd(sq_error, na.rm = TRUE),
+    n = n(),
+    mse_se = mse_sd / sqrt(n),
+    rmse = sqrt(mse),
+    rmse_se = mse_se / (2 * rmse),
+    CI_low = rmse - 1.96 * rmse_se,
+    CI_high = rmse + 1.96 * rmse_se,
+    row_type = "overall pooled",
+    .groups = "drop"
+  )
+
+
+# --- RMSE by study ------------------------------------------------------------
+
+model_rmse_by_study <- model_predictions %>%
+  select(
+    study,
+    human,
+    S1_pp_prediction,
+    SS_wc_prediction,
+    SI_mean_wc_prediction
+  ) %>%
+  pivot_longer(
+    cols = -c(study, human),
+    names_to = "model",
+    values_to = "prediction"
+  )  %>%
+  filter(!is.na(human), !is.na(prediction)) %>%
+  mutate(
+    sq_error = (human - prediction)^2,
+    model = recode(
+      model,
+      S1_pp_prediction            = "Posterior link\nprobability",
+      SS_wc_prediction            = "Bayesian strength\n(SS priors)",
+      SI_mean_wc_prediction       = "Structure-averaged\nstrength"
+    )
+  ) %>%
+  group_by(study, model) %>%
+  summarise(
+    mse = mean(sq_error, na.rm = TRUE),
+    mse_sd = sd(sq_error, na.rm = TRUE),
+    n = n(),
+    mse_se = mse_sd / sqrt(n),
+    rmse = sqrt(mse),
+    rmse_se = mse_se / (2 * rmse),
+    CI_low = rmse - 1.96 * rmse_se,
+    CI_high = rmse + 1.96 * rmse_se,
+    .groups = "drop"
+  ) %>%
+  arrange(model, rmse)
+
+
+# --- Mean RMSE across studies ---------------------------------
+# This gives each study equal weight and averages study-level RMSEs.
+# The interval is a descriptive 95% interval around the mean across studies.
+
+model_rmse_mean_study <- model_rmse_by_study %>%
+  group_by(model) %>%
+  summarise(
+    study = "Mean across studies",
+    rmse_mean = mean(rmse, na.rm = TRUE),
+    rmse_sd = sd(rmse, na.rm = TRUE),
+    n_studies = n(),
+    rmse_se = rmse_sd / sqrt(n_studies),
+    CI_low = rmse_mean - 1.96 * rmse_se,
+    CI_high = rmse_mean + 1.96 * rmse_se,
+    n = sum(n, na.rm = TRUE),
+    row_type = "mean across studies",
+    .groups = "drop"
+  ) %>%
+  rename(rmse = rmse_mean)
+
+
+# --- Combine study-level, pooled, and mean-across-study estimates ------------
+
+df_model_comparison_rmse <- 
+  model_rmse_by_study %>%
+  mutate(row_type = "study") %>%
+  bind_rows(model_rmse_overall) %>%
+  bind_rows(model_rmse_mean_study) %>%
+  mutate(
+    study = factor(
+      study,
+      levels = c(
+        "All studies pooled",
+        "Mean across studies",
+        study_order
+      )
+    ),
+    overall_label = case_when(
+      row_type == "overall pooled" ~ paste0("RMSE = ", sprintf("%.1f", rmse)),
+      row_type == "mean across studies" ~ paste0("RMSE = ", sprintf("%.1f", rmse)),
+      TRUE ~ NA_character_
+    ),
+    label_x = case_when(
+      row_type %in% c("overall pooled", "mean across studies") ~ rmse + 5,
+      TRUE ~ NA_real_
+    ),
+    label_hjust = case_when(
+      row_type %in% c("overall pooled", "mean across studies") ~ 0,
+      TRUE ~ NA_real_
+    )
+  ) %>% 
+  mutate(
+    model = factor(model, levels = c(
+      "Structure-averaged\nstrength",
+      "Posterior link\nprobability",
+      "Bayesian strength\n(SS priors)"
+    ))) 
+
+
+# --- Plot RMSE by study -------------------------------------------------------
+plot_rmse_by_study <- ggplot(
+  df_model_comparison_rmse,
+  aes(x = rmse, y = study, fill = model, color = model)
+) +
+  facet_wrap(~ model, nrow = 1) +
+  geom_errorbar(
+    aes(xmin = CI_low, xmax = CI_high),
+    height = 0.18,
+    linewidth = 0.3,
+    orientation = "y",
+    na.rm = TRUE
+  ) +
+  geom_col(
+    width = 0.65,
+    alpha = 0.85,
+    na.rm = TRUE
+  ) +
+  geom_text(
+    aes(x = label_x, label = overall_label, hjust = label_hjust),
+    size = 3,
+    color = "black",
+    na.rm = TRUE
+  ) +
+  coord_cartesian(clip = "off") +
+  scale_x_continuous(expand = c(0, 0)) +
+  scale_fill_manual(values = colors_models) +
+  scale_color_manual(values = colors_models) +
+  labs(
+    x = "Root mean squared error (RMSE)",
+    y = NULL
+  ) +
+  theme_classic() +
+  theme(
+    legend.position = "none",
+    strip.background = element_blank(),
+    strip.text = element_text(size = 10, face = "bold"),
+    axis.text.y = element_text(size = 8),
+    plot.margin = margin(7, 35, 5.5, 5.5)
+  )
+
+ggsave("plots/model_comparison_rmse.png", plot_rmse_by_study, dpi = 300, width = 12, height = 4)
+ggsave("plots/model_comparison_rmse.pdf", plot_rmse_by_study, width = 12, height = 4)
+
+
+# combine correlation and RMSE by study plots -------------------------------------
+
+plot_model_comparison <- plot_grid(
+  plot_r_by_study,
+  plot_rmse_by_study,
+  ncol = 1,
+  labels = c("a) Correlations", "b) Prediction error"),
+  label_size = 14,
+  label_fontface = "plain",
+  label_x = 0,
+  label_y = 1,
+  hjust = 0,
+  vjust = 1
+)
+
+plot_model_comparison <- ggdraw() +
+  draw_label(
+    "Model comparison",
+    x = 0,
+    y = 0.97,
+    # fontface = "bold",
+    size = 18,
+    hjust = 0
+  ) +
+  draw_plot(
+    plot_model_comparison,
+    x = 0,
+    y = 0,
+    width = 1,
+    height = 0.93
+  )
+
+plot_model_comparison
+ggsave("plots/fig4_model_comparison.png", plot_model_comparison, dpi = 300, width = 9, height = 8)
+ggsave("plots/fig4_model_comparison.pdf", plot_model_comparison, width = 9, height = 8)
+
+
+```
+
+## Model comparison across contingency types
+@fig-model_comparison_by_contingency summarizes predictive accuracy separately for positive, negative, and zero-contingency conditions:
+
+
+```{r}
+#| fig-width: 8
+#| fig-height: 6
+#| label: fig-model_comparison_by_contingency
+#| fig-cap: "Predictive accuracy by contingency type."
+
+
+# -------------------------------------------------------------------------
+# Mean correlation across contingency types -------------------------------
+# -------------------------------------------------------------------------
+model_correlations_by_contingency_type <- model_predictions %>%
+  select(
+    study,
+    human,
+    sample_direction,
+    S1_pp_prediction,
+    SS_wc_prediction,
+    SI_mean_wc_prediction
+  ) %>%
+  pivot_longer(
+    cols = -c(study, human, sample_direction),
+    names_to = "model",
+    values_to = "prediction"
+  ) %>% 
+  filter(!is.na(human), !is.na(prediction)) %>%
+  mutate(
+    model = recode(
+      model,
+      S1_pp_prediction            = "Posterior link\nprobability",
+      SS_wc_prediction            = "Bayesian strength\n(SS priors)",
+      SI_mean_wc_prediction       = "Structure-averaged\nstrength"
+    )
+  ) %>%
+  mutate(
+    model = factor(model, levels = c(
+      "Structure-averaged\nstrength",
+      "Posterior link\nprobability",
+      "Bayesian strength\n(SS priors)"
+    ))) %>% 
+  mutate(
+    sample_direction = recode(
+      sample_direction,
+      "zero"            = "Zero\ncontingency",
+      "generative"            = "Positive\ncontingency",
+      "preventive"            = "Negative\ncontingency"
+    )
+  ) %>%
+  group_by(sample_direction, model) %>%
+  summarise(
+    n = n(),
+    # Always compute the point estimate when possible
+    r = cor(human, prediction, use = "pairwise.complete.obs"),
+    # cor.test() only for CI/p-value when n is large enough and both variables vary
+    test = list(
+      if (
+        n() >= 4 &&
+        sd(human, na.rm = TRUE) > 0 &&
+        sd(prediction, na.rm = TRUE) > 0
+      ) {
+        cor.test(human, prediction, method = "pearson")
+      } else {
+        NULL
+      }
+    ),
+    .groups = "drop"
+  ) %>%
+  mutate(
+    CI_low   = map_dbl(test, \(x) if (is.null(x)) NA_real_ else unname(x$conf.int[1])),
+    CI_high  = map_dbl(test, \(x) if (is.null(x)) NA_real_ else unname(x$conf.int[2]))
+  ) %>%
+  select(-test) %>%
+  arrange(model, desc(r))
+
+
+# Plot correlation across contingency type -----------------------------------------
+
+plot_r_by_contingency <- ggplot(
+  model_correlations_by_contingency_type,
+  aes(x = r, y = sample_direction, color = model)
+) +
+  facet_wrap( ~ model, nrow = 1) +
+  geom_errorbar(
+    aes(xmin = CI_low, xmax = CI_high),
+    height = 0.1,
+    linewidth = 0.6,
+    na.rm = TRUE,
+    orientation = "y"
+  ) +
+  geom_text(
+    aes(label = sprintf("r = %.2f", r)),
+    # nudge_x = -0.4,
+    x=0.1,
+    hjust = 0,
+    size = 3.5,
+    color = "black",
+    na.rm = TRUE
+  ) +
+  geom_point(na.rm = TRUE) +
+  coord_cartesian(xlim = c(0, 1), clip = "off") +
+  scale_color_manual(values = colors_models) +
+  scale_x_continuous(breaks = c(0,0.5,1), labels = c("0", "0.5", "1")) +
+  labs(
+    x = "Correlation with human ratings (Pearson r)",
+    y = ""
+  ) +
+  theme_classic() +
+  theme(
+    legend.position = "none",
+    strip.background = element_blank(),
+    strip.text = element_text(size = 10, face = "bold"),
+    axis.text.y = element_text(size = 12),
+    plot.margin = margin(5.5, 35, 5.5, 5.5)
+  )
+
+ggsave("plots/model_comparison_cor_by_contingency_type.png", plot_r_by_contingency, dpi = 300, width= 7, height = 2.5)
+ggsave("plots/model_comparison_cor_by_contingency_type.pdf", plot_r_by_contingency, width= 7, height = 2.5)
+
+
+
+# --- RMSE by contingency type ------------------------------------------------------------
+model_rmse_by_contingency <-
+  model_predictions %>%
+  select(
+    study,
+    human,
+    sample_direction,
+    S1_pp_prediction,
+    SS_wc_prediction,
+    SI_mean_wc_prediction
+  ) %>%
+  pivot_longer(
+    cols = -c(study, human, sample_direction),
+    names_to = "model",
+    values_to = "prediction"
+  )  %>%
+  filter(!is.na(human), !is.na(prediction)) %>%
+  mutate(
+    sq_error = (human - prediction)^2,
+    model = recode(
+      model,
+      S1_pp_prediction            = "Posterior link\nprobability",
+      SS_wc_prediction            = "Bayesian strength\n(SS priors)",
+      SI_mean_wc_prediction       = "Structure-averaged\nstrength"
+    )
+  ) %>%
+  mutate(
+    model = factor(model, levels = c(
+      "Structure-averaged\nstrength",
+      "Posterior link\nprobability",
+      "Bayesian strength\n(SS priors)"
+    ))) %>% 
+  mutate(
+    sample_direction = recode(
+      sample_direction,
+      "zero"            = "Zero\ncontingency",
+      "generative"            = "Positive\ncontingency",
+      "preventive"            = "Negative\ncontingency"
+    )
+  ) %>%
+  group_by(sample_direction, model) %>%
+  summarise(
+    mse = mean(sq_error, na.rm = TRUE),
+    mse_sd = sd(sq_error, na.rm = TRUE),
+    n = n(),
+    mse_se = mse_sd / sqrt(n),
+    rmse = sqrt(mse),
+    rmse_se = mse_se / (2 * rmse),
+    CI_low = rmse - 1.96 * rmse_se,
+    CI_high = rmse + 1.96 * rmse_se,
+    .groups = "drop"
+  ) %>%
+  arrange(model, rmse)
+
+# Plot RMSE across contingency types -----------------------------------------
+
+plot_rmse_by_contingency <- ggplot(
+  model_rmse_by_contingency,
+  aes(x = rmse, y = sample_direction, fill = model, color = model)
+) +
+  facet_wrap(~ model, nrow = 1) +
+  geom_errorbar(
+    aes(xmin = CI_low, xmax = CI_high),
+    height = 0.18,
+    linewidth = 0.3,
+    orientation = "y",
+    na.rm = TRUE
+  ) +
+  geom_col(
+    width = 0.65,
+    alpha = 0.85,
+    na.rm = TRUE
+  ) +
+  geom_text(
+    # aes(label = sprintf("RMSE = %.1f", rmse)),
+    aes(label = sprintf("%.1f", rmse)),
+    # nudge_x = 5,
+    x=0.15,
+    hjust = 0,
+    size = 3.5,
+    color = "black",
+    na.rm = TRUE
+  ) +
+  coord_cartesian(clip = "off") +
+  scale_x_continuous(expand = c(0, 0)) +
+  scale_fill_manual(values = colors_models) +
+  scale_color_manual(values = colors_models) +
+  labs(
+    x = "Root mean squared error (RMSE)",
+    y = NULL
+  ) +
+  theme_classic() +
+   theme(
+    legend.position = "none",
+    strip.background = element_blank(),
+    strip.text = element_text(size = 10, face = "bold"),
+    axis.text.y = element_text(size = 12),
+    plot.margin = margin(7, 35, 5.5, 5.5)
+  )
+
+
+ggsave("plots/model_comparison_rmse_by_contingency_type.png", plot_rmse_by_contingency, dpi = 300, width= 8, height = 2.5)
+ggsave("plots/model_comparison_rmse_by_contingency_type.pdf", plot_rmse_by_contingency, width= 8, height = 2.5)
+
+# combine correlation and RMSE by contingency -------------------------------------
+plot_model_comparison_by_contingency <- plot_grid(
+  plot_r_by_contingency,
+  plot_rmse_by_contingency,
+  nrow = 2,
+  labels = c("a) Correlation", "b) Prediction error"),
+  label_size = 14,
+  label_fontface = "plain",
+  label_x = 0,
+  label_y = 1.02,
+  hjust = 0,
+  vjust = 1
+)
+
+plot_model_comparison_by_contingency <- ggdraw() +
+  draw_label(
+    "Model comparison by contingency type",
+    x = 0.0,
+    y = 0.98,
+    # fontface = "bold",
+    size = 16,
+    hjust = 0
+  ) +
+  draw_plot(
+    plot_model_comparison_by_contingency,
+    x = 0,
+    y = 0,
+    width = 1,
+    height = 0.94
+  )
+
+
+plot_model_comparison_by_contingency
+ggsave("plots/fig5_model_comparison_by_contingency.png", plot_model_comparison_by_contingency, dpi = 300, width = 8, height = 6.5)
+ggsave("plots/fig5_model_comparison_by_contingency.pdf", plot_model_comparison_by_contingency, width = 8, height = 6.5)
+
+
+
+```
+
+We additionally performed three robustness checks, reported in separate R scripts: (1) a study-level bootstrap to assess the stability of the model comparison, (2) a replication of the model comparison restricted to the original studies compiled by Perales and Shanks (2007), and (3) an extended model comparison including alternative prior specifications for Bayesian and structure-averaged strength. The corresponding code can be found in `robustness_check_1_bootstrap.R`, `robustness_check_2_model_comparison_Perales_Shanks_2007.R`, and `robustness_check_3_extended_model_comparison.R`.
+
+
+# References
+
+<!-- References will auto-populate in the refs div below -->
+
+::: {#refs}
+:::
+
+
+
+# Session Information {-}
+
+<button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#collapseOne">
+
+Session Information
+
+</button>
+
+:::: {#collapseOne .accordion-collapse .collapse}
+<div>
+
+```{r}
+sessionInfo()
+```
+
+</div>
+::::

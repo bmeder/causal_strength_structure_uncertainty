@@ -1,0 +1,2532 @@
+---
+title: "Causal Strength Under Structure Uncertainty"
+shorttitle: "Causal Strength Under Structure Uncertainty"
+author:
+  - name: Björn Meder
+    corresponding: true
+    orcid: 0000-0002-9326-400X
+    email: bjoern.meder@hmu-potsdam.de
+    affiliations:
+      - name: HMU Health and Medical University
+        department: Institute for Mind, Brain, and Behavior
+        address: Olypmischer Weg 1
+        city: Potsdam
+        country: Germany
+        postal-code: 14471
+author-note:
+  status-changes: 
+    affiliation-change: ~
+    deceased: ~
+  disclosures:
+    study-registration: ~
+    data-sharing: ~
+    related-report: ~
+    conflict-of-interest: ~
+    financial-support: ~
+    gratitude: ~
+    authorship-agreements: ~
+abstract: "We formalize this idea in a Bayesian framework in which uncertainty about causal structure is explicitly represented, using Bayesian model averaging to derive estimates of causal strength that integrates structural support with parameter est support with the posterior probability that a causal relation exists, To evaluate predictive accuracy, we re-analyze published data from several studies, including recent experiments that elicit baseline judgments before any data have been observed. Across experiments, structure averaged strength captured human judgments better than posterior link probability."
+keywords: [causal learning, causal induction, causal structure, Bayesian models]
+bibliography: causal_strength_under_structure_uncertainty.bib
+format:
+  apaquarto-docx: default
+  apaquarto-html: default
+  apaquarto-typst: 
+    keep-typ: true
+  apaquarto-pdf:
+    documentmode: man
+  html:
+    toc: true
+    toc-expand: 1
+    theme: flatly
+    code-fold: true
+    toc-location: left
+    lightbox: true
+    number-sections: true
+    number-depth: 3
+    embed-resources: true
+    grid:
+      sidebar-width: 300px
+      body-width: 1000px
+      margin-width: 200px
+      gutter-width: 1.5rem
+wordcount: true
+---
+
+
+```{r setup, results='hide', message=FALSE, warning=FALSE}
+# Housekeeping
+knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(message = FALSE)
+knitr::opts_chunk$set(warning = FALSE)
+knitr::opts_chunk$set(fig.aligned='center')
+
+options(knitr.kable.NA = '')
+options(scipen=999)
+
+# required R packages
+packages <- c('gridExtra', 'tidyverse', "cowplot", "kableExtra", "scales")
+install.packages(setdiff(packages, rownames(installed.packages())))
+sapply(packages, require, character.only = TRUE)
+
+
+set.seed(0815)
+
+colors_models <- c(
+  "Posterior link\nprobability" = "#009E73",
+  "Structure-averaged\nstrength" = "#D55E00",
+  "Bayesian strength\n(SS priors)" = "#56B4E9"
+)
+
+# some labels and colors for plotting
+lab_S1_low  <- "atop('Low prior belief in causal link', italic(P)(italic(S)[1])==0.1)"
+lab_S1_med  <- "atop('Medium prior belief causal in link', italic(P)(italic(S)[1])==0.5)"
+lab_S1_high <- "atop('High prior belief in causal link', italic(P)(italic(S)[1])==0.9)"
+
+
+source("structure_induction_func.R") # functions for generating predictions of the structure induction (SI) model (Meder et al., 2014, 2026)
+source("SS_strength_model_func.R") # functions for generating causal strength estimates under S1 given sparse and strong (SS) priors (Lu et al, 2008, Psych Review)
+source("meta_analysis_preprocessing.R") # reads data for meta analysis from various data files stored in directory "data"
+
+
+```
+ 
+
+
+# Introduction
+
+
+The capacity to infer causal relations is fundamental to intelligent behavior. Knowing which plants are edible, which weather conditions predict rain, and which symptoms are caused by a disease illustrates how causal knowledge supports prediction, diagnosis, and intervention [@waldmann2017oxford]. Equally important is recognizing when events are not causally related, such as understanding that bloodletting does not cure disease. Successful causal induction therefore requires distinguishing genuine causal relations from apparent ones despite limited and noisy evidence.
+
+From a computational perspective, causal induction involves two related but distinct problems: inferring whether a causal relation exists and estimating how strong that relation is. These correspond to inference about causal structure and estimation of causal strength. Traditional measures such as contingency [@cheng1992covariation] and causal power [@Cheng1997] have primarily addressed the strength question, providing important normative benchmarks for evaluating human causal learning [@perales2007models; @buehner2003covariation; @lober2000causal; @waldmann1996knowledge]. However, these measures estimate strength under an assumed causal structure: they hypothesize the presence of a link and use the observed data to estimate its magnitude. However, they do not represent uncertainty about whether the assumed causal link exists, nor do they represent uncertainty about strength estimates derived from finite samples.
+
+Bayesian accounts of causal induction address this problem by considering multiple causal hypotheses and explicitly representing uncertainty about causal strength and structure [@Griffiths2005; @griffiths2009theory]. This framework has provided important insights into human causal induction, offering explanations of behavioral findings that appear anomalous from the perspective of observed contingency alone. For instance, positive causal judgments under zero contingency can be consistent with rational inference when the data do not conclusively rule out the presence of a causal relation. At the same time, causal judgments are commonly elicited by asking participants how strongly one event causes another. Predicting human causal judgment therefore treats nominal strength questions as potentially reflecting evidence for, or belief in, the existence of a causal link.
+
+A different Bayesian approach retains causal strength as the target of inference. @Lu2008bayesianpriors formulated a Bayesian version of causal power in which judgments reflect a posterior distribution over causal strength rather than a single point estimate. Their account showed how such judgments may reflect both observed data and prior expectations about plausible causal parameters. This model preserves the interpretation of causal ratings as judgments about the magnitude of a causal influence. However, because strength is estimated conditional on a link structure, it represents uncertainty about the magnitude of a causal influence but not uncertainty about whether that link exists in the first place.
+
+The present account combines these perspectives. It is situated within the framework of Bayesian causal induction, preserving causal strength as the target of inference while explicitly considering multiple causal structures. We argue that if the target judgment is causal strength, and the existence of the relevant causal link is uncertain, the normatively relevant quantity is the posterior expectation of strength across possible causal structures. By averaging the strength implied by each structure according to its posterior probability, the resulting _structure-averaged causal strength_ propagates uncertainty about causal structure into the estimation of causal strength without reinterpreting strength ratings as judgments about link probability. Posterior link probability, conditional causal strength, and structure-averaged causal strength are therefore distinct quantities because they answer different inferential questions, yielding different predictions for the same observations.
+
+In the following, we first distinguish inference about causal structure from estimation of causal strength and locate existing Bayesian models within this framework. Second, we compare posterior link probability, Bayesian strength estimation under sparse-and-strong priors, and structure-averaged strength across positive, zero, and negative contingencies, illustrating how they produce distinct predictions. Third, we evaluate whether structure-averaged strength provides a plausible descriptive account of published human causal judgments. Together, the analyses support a strength-based interpretation of causal ratings while showing that uncertainty about causal structure must be represented explicitly.
+
+
+<!-- # Estimating Causal Strength -->
+# From Contingency to Causal Strength
+
+Causal learning involves two distinct inferential questions. The first is whether a candidate cause is related to an effect at all. The second is how strongly the cause influences the effect, assuming that such a relation exists. These questions correspond to inference about _causal structure_ and estimation of _causal strength_, respectively. The distinction is important because observed covariation does not uniquely determine either quantity: the same data may be compatible with different causal structures and with a range of possible strength values. A normative account of causal learning and judgment should therefore represent uncertainty about both the existence of a causal link and about its magnitude.
+
+In a standard causal-learning task, learners observe whether a binary candidate cause _C_ (e.g., a virus) and an effect _E_ (e.g., disease) are present or absent across a series of cases. Descriptively, the observed sample can be summarized by the conditional probability of the effect when the cause is present, $P(e \mid c)$, and the conditional probability of the effect when the cause is absent, $P(e \mid \neg c)$. Their difference defines the observed contingency between the two events:
+
+$$
+\Delta P = P(e \mid c)-P(e \mid \neg c).
+$$ {#eq-deltaP}
+
+Positive values of $\Delta P>0$ indicate that the effect occurs more frequently when the candidate cause is present, whereas negative values indicate that the effect occurs less frequently in its presence ($\Delta P<0$). Thus, the sign of $\Delta P$ captures whether the candidate cause raises or lowers the probability of the effect, and its magnitude captures the size of that change. When the effect is equally likely in the presence and absence of the candidate cause, the observed contingency is zero. 
+
+In causal learning, $\Delta P$ can be interpreted as an estimate of causal strength under a linear-additive model, in which the candidate cause changes the probability of the effect by a constant amount [@cheng1992covariation; @waldmann1992predictive]. More broadly, this notion of probabilistic “difference making” has served as a normative benchmark or descriptive model across several research areas, including human contingency learning [@jenkins1965judgment; @Alloy1979; @Dev2022sadder], probabilistic theories of causation and confirmation [@sprenger2018foundations; @tentori2007comparison; crupi2007bayesian], information search [@2022-Nelson_likdiff; nelson2005finding], and associative learning [@danks2003equilibria].
+
+The interpretation of $\Delta P$ as a measure of causal strength depends on the assumed functional form, namely an additive influence of the candidate cause [@Griffiths2005; @meder2025causal_RRR_ARR]. A different measure results when the candidate cause and background causes are assumed to provide independent opportunities for producing the effect. _Causal power_ [@Cheng1997], denoted $q_c$, defines causal strength as a parameter of such a generative noisy-OR model [@glymour2003learning], estimated as
+
+$$
+q_c = \frac{\Delta P} {1-P(e \mid \neg c)}.
+$$ {#eq-power}
+
+The denominator adjusts the observed contingency for the proportion of cases in which the effect was not already produced by background causes and therefore was available to be produced by the candidate cause. For preventive relations, the corresponding formulation is based on a noisy-AND-NOT model [@yuille2007noisy; @Griffiths2005], in which the candidate cause prevents an effect that would otherwise be produced by background causes.
+
+The two quantities thus estimate causal influence under different assumptions about how candidate cause and background causes combine: $\Delta P$ corresponds to a linear-additive representation, whereas causal power follows from noisy-OR or noisy-AND-NOT assumptions. What the measures have in common is that they provide estimates of causal strength within an assumed causal structure: they hypothesize the presence of a link and use the sample data to estimate its strength. As a consequence, they leave two sources of uncertainty unresolved: uncertainty about the value of the strength parameter and uncertainty about whether the assumed causal link is present at all.
+
+## Uncertainty in causal induction
+
+When computed directly from observed frequencies, $\Delta P$ and causal power provide point estimates of causal strength, which do not represent uncertainty about the estimate. This is important, because a range of causal-strength values may be compatible with the same observations. For instance, a weak causal influence may produce little observed contingency by chance, or an observed contingency may overstate the underlying influence because of sampling noise. This is a problem of _parameter uncertainty_: even after assuming a particular causal model and functional form, the available data generally do not determine a single strength value with certainty.
+
+Another form of uncertainty concerns whether the assumed causal relation exists at all. Although a zero contingency is often interpreted as indicating the absence of a causal relation, from a probabilistic perspective it is only a point estimate of the strength parameter under an assumed causal structure and functional form. With limited observations, such an estimate does not establish conclusively that no causal relation exists, nor does it quantify the probability that a causal link is present but masked by sampling variability. Measures such as $\Delta P$ and causal power therefore address the magnitude of causal influence conditional on a link model, whereas determining whether a causal relation exists requires inference over alternative causal structures.
+
+Addressing structure uncertainty therefore requires moving beyond parameter estimation within a single causal structure to inference over alternative causal models, thus separating inference about causal structure from strength estimation. More generally, representing uncertainty about both the existence and the magnitude of a causal relation requires a framework that can quantify parameter uncertainty within each structure, compare the evidence for alternative structures, and consider uncertainty about the true structure when deriving an overall estimate of causal influence. The corresponding psychological question is whether learners represent both forms of uncertainty  and how they consider them when making a causal judgments.
+
+# Bayesian Models of Causal Induction: Strength and Structure {#sec-structure-strength}
+
+Measures such as $\Delta P$ and causal power estimate causal strength under an assumed causal model. Bayesian accounts extend these measures by representing uncertainty explicitly, both about parameter values within a causal structure and about which causal structure is likely to have generated the observations.
+
+Here, we adopt a Bayesian perspective that separates causal structure from causal strength and represents uncertainty over alternative structures [@Griffiths2005; @griffiths2009theory; @Meder2014; @stephan2018preemption]. Psychologically, this separation between observable evidence and latent causal relations aligns with the idea that people reason at the causal level and thereby go “beyond the information given” [@waldmann2006beyond]. On this view, learners do not merely assess observed covariation or estimate the strength of a presupposed relation. Rather, they interpret the observations as evidence concerning a causal relation that cannot itself be directly observed.
+
+## Inference Over Causal Structures
+
+Within the framework of Bayesian causal induction, learning is modeled as inference over graphical causal models, with uncertainty represented at both the parameter and structure levels. The learner considers alternative hypotheses about the data-generating process and evaluates their posterior probabilities given the observed data. In a simple causal-learning task, the joint occurrence of $C$ and $E$ can be summarized in a $2\times2$ contingency table (@fig-si A). These observations can then be evaluated under two alternative causal structures (@fig-si B). Structure $S_1$ represents the hypothesis that candidate cause _C_ is causally related to effect _E_. Under $S_1$, the probability of _E_ depends on both _C_ and unobserved background causes _A_, with $w_c$ denoting the strength of _C_ and $w_a$ denoting the aggregate influence of _A_. The interpretation of $w_c$ depends on the assumed functional form; in the noisy-OR and noisy-AND-NOT models considered here, it corresponds to generative or preventive causal power, respectively. Structure $S_0$, by contrast, represents the hypothesis that _C_ has no causal influence on _E_, such that the effect is generated solely by background causes. Under $S_0$, any observed association between _C_ and _E_ is incidental.
+
+Within each structure, uncertainty about parameters such as $w_c$ and $w_a$ is represented by probability distributions rather than single point estimates. A common choice is to assign uniform priors over the parameters [@Griffiths2005; @griffiths2009theory; @Meder2014; @stephan2018preemption], although priors can also encode generic expectations about plausible parameter values [@Lu2008bayesianpriors] or be estimated from empirical data [@yeung2015identifying]. @fig-si C illustrates this for the causal strength parameter under $S_1$, showing the posterior distribution over the causal strength parameter $w_c$ derived under uniform parameter priors. 
+
+These distributions are integrated when evaluating how well each structure predicts the observations. Because $S_0$ and $S_1$ define distinct hypotheses and likelihood functions, the simpler no-link structure may be favored when it predicts the observations better than the more complex link structure, consistent with Bayesian Occam’s razor [@mackay2003information]. The resulting marginal likelihoods are then combined with prior probabilities over structures to obtain posterior structure probabilities. These posterior probabilities quantify uncertainty about whether the candidate cause is causally related to the effect, given the observed data and prior expectations about the existence of a link (@fig-si D). As with the parameter priors, a common choice is to assign equal prior probabilities to the alternative structures. 
+
+The comparison between alternative structures gives rise to different quantities that can be related to human causal judgment. On this view, learning changes not only an estimate of causal strength but also the learner’s confidence about the true generating causal model. @Griffiths2005 initially formalized structural evidence in terms of _causal support_, defined as the log Bayes factor [@KassRaftery1995BayesFactors] comparing the likelihood of the data under the link and no-link structure. Causal support therefore quantifies how strongly the observed data favor $S_1$ over $S_0$. @griffiths2009theory subsequently focused on the posterior probability of the link structure, $P(S_1\mid D)$, which captures how likely it is that a causal relation exists, given the data and prior beliefs in the presence of a link.
+
+Thus, whereas $\Delta P$ and causal power answer how strong a causal influence is under an assumed link structure, posterior link probability represents how probable it is that the link exists. Notably, although posterior link probability represents a structural quantity, @griffiths2009theory found that it correlated strongly with causal judgments elicited using wording about the degree of causal influence. This established posterior structure inference as a candidate model of human judgments commonly interpreted as tracking estimates of causal strength.
+
+
+<!-- Thus, whereas $\Delta P$ and causal power can be interpreted as answering “How strong is the causal influence, assuming a link?”, causal support answers “How much do the data support a link?”, and posterior link probability answers “How probable is it that a link exists?”. Because the posterior link probability is bounded between $0$ and $1$, can incorporate prior expectations about the presence of a link, and maps directly onto the question of whether a causal relation is present, we use it as our primary measure of structural inference throughout our analyses. -->
+
+<!-- Thus, whereas $\Delta P$ and causal power can be interpreted as answering “How strong is the causal influence, assuming a link?”, posterior link probability answers “How probable is it that a link exists?” Notably, although posterior link probability represents a structural quantity, @griffiths2009theory found that it correlated strongly with causal judgments elicited using wording about the degree of causal influence. This established posterior structure inference as a candidate account not only of explicit link judgments, but also of ratings conventionally interpreted as judgments of causal strength. -->
+
+## Causal Strength Under Sparse-and-Strong Priors {#sec-SS-model}
+
+Bayesian causal models not only support explicit inference about whether a causal link exists, but also allow generic assumptions about causal systems to inform causal strength estimation. @Lu2008bayesianpriors developed a Bayesian version of causal power in which the strength of the candidate cause and influence of the background cause are treated as uncertain parameters. For strength judgments, inference is performed under the link structure $S_1$. Rather than deriving a single estimate directly from the observed frequencies, the model combines the likelihood of the data with prior distributions over these parameters. The resulting posterior distribution represents the strength of $C$ that remain plausible after observing the data, and its posterior mean provides a Bayesian estimate of causal strength conditional on the presence of the link and prior assumptions about plausible strength values. 
+
+@Lu2008bayesianpriors emphasized the role of prior expectations in causal learning, proposing that learners are guided by generic principles such as causal simplicity. They formalized this idea through sparse-and-strong (SS) priors, which favor causal systems with relatively few effective causes, each tending to be strong. For generative relations, the prior couples $w_c$ and $w_a$, favoring either a strong candidate cause with weak background causes or the reverse. As a result, posterior strength estimates can differ from sample causal power and from estimates obtained under uniform parameter priors or when prior expectations are estimated empirically [@yeung2015identifying]. Psychologically, the SS prior assumes that learners induce caudal strength under the expectation that causal systems typically have a small number of strong causes, such that greater strength attributed to the candidate cause tends to reduce estimates of th ebackground cause, and vice versa.
+
+@Lu2008bayesianpriors also modeled structure inference by comparing link and no-link structures under an augmented SS prior. Because the present work concerns the estimation of causal strength, we focus on the posterior mean of $w_c$ under $S_1$ and the basic SS prior. This estimate preserves the interpretation of causal ratings as judgments about the magnitude of causal influence and represents uncertainty about that magnitude, but remains conditional on $S_1$. Thus, although the broader framework can model both structure and strength judgments, the SS strength estimate considered here does not propagate uncertainty about whether the link exists.
+
+# Causal Strength Under Structure Uncertainty {#sec-structure-induction-model}
+
+Posterior link probability and conditional Bayesian strength capture distinct aspects of causal inference. The former represents the uncertainty whether a causal relation exists, whereas the latter represents how strong that relation is if it exists. Neither quantity, however, represents the overall magnitude of causal influence when the existence of the link remains uncertain. A strong causal influence conditional on $S_1$ may receive little support if the no-link structure remains plausible. Conversely, a highly probable link may nevertheless have only a weak influence on the effect. An early Bayesian account addressed this problem by averaging causal strength over generative, preventive, and no-link hypotheses, thereby incorporating uncertainty over both structures and parameters into predictions of human strength judgments [@danks2002dynamical]. Bayesian model averaging was subsequently incorporated in models of diagnostic inference [@Meder2014] and causal attribution [@stephan2018preemption], providing normative accounts that also captured human judgments. 
+
+Building on this principle, we treat the posterior expectation of causal strength across alternative structures as a distinct measure of strength, which we call _structure-averaged causal strength_. This quantity preserves causal strength as the target of judgment while incorporating uncertainty about both causal structure and parameter values. Psychologically, structure averaging corresponds to a learner who does not commit to a single causal model and estimates causal influence under that assumption, but instead takes into account uncertainty about the model when estimating causal strength.
+
+## Structure-Averaged Causal Strength
+
+To estimate causal strength while retaining structural uncertainty, we use Bayesian model averaging [@hoeting1999bayesian; @hinne2020conceptual]. The posterior mean of causal strength within each structure is weighted by that structure’s posterior probability:
+
+$$
+\mathbb{E}[w_c\mid D] =
+\sum_{S_i\in\mathcal{S}}
+\mathbb{E}[w_c\mid D,S_i] \cdot P(S_i\mid D),
+$$
+
+where $\mathbb{E}[w_c\mid D,S_i]$ is the posterior mean strength under each considered structure, and $P(S_i\mid D)$ denotes the structure's posterior probability. This strength estimate incorporates parameter uncertainty through the posterior distribution within each structure and structure uncertainty through the posterior probabilities assigned to the alternative structures. The same logic applies to any number of structural hypotheses.
+
+@fig-si illustrates this computation, assuming a noisy-OR generating function, uniform priors over the model parameters, and equal prior probabilities for structures $S_0$ and $S_1$. Panels A and B show the observed data and the link and no-link structures. Panel C shows the posterior distribution of causal strength under $S_1$, and Panel D shows the posterior probabilities of the two structures. Structure-averaged causal strength combines these quantities by weighting the strength implied by each structure by its posterior probability (Panel E). Because the data does not conclusively rule out that there is no causal relation between _C_ and _E_ (i.e., the posterior probability of $S_0$ is still substantial), the structure-averaged estimate is lower than the causal strength estimate 
+
+In case considered here, the no-link structure fixes the causal strength of $C$ at zero. Structure-averaged strength therefore reduces to the posterior mean under $S_1$ weighted by the posterior probability of $S_1$. Accordingly, the conditional estimate under $S_1$ is attenuated whenever the no-link structure retains posterior probability, i.e. when there is remaining uncertainty about the existence of a causal link. Structure-averaged strength is therefore high only when both the conditional strength estimate and the posterior probability of $S_1$ are high.
+
+![Bayesian causal induction and structure-averaged strength. A) Observed learning data, summarized by the joint frequency dsitribution of cause and effect, together with the corresponding conditional probabilities and sample estimates of $\Delta P$ causal power. B) Alternative causal structures. Under $S_1$, the candidate cause $C$ and background causes $A$ influence the effect $E$, with strengths $w_c$ and $w_a$, respectively. Under $S_0$, only the background causes influence the effect, and the causal strength of $C$ is fixed at zero. Parameter $b_c$ denotes the probability that the candidate cause is present. C) Posterior distribution over the causal-strength parameter under the link structure, $P(w_c\mid D,S_1)$, derived under independent uniform priors over the paramaters. D) Posterior probabilities of the link and no-link structures, $P(S_1\mid D)$ and $P(S_0\mid D)$. E) Causal strength under $S_1$ and structure-averaged causal strength, obtained by weighting the strength implied by each structure by its posterior probability.](figures/SI_model.png){#fig-si}
+
+When the posterior probability of $S_1$ approaches one, structure-averaged strength converges to the strength estimate under $S_1$. Bayesian strength estimation under an assumed link structure is thus recovered as a limiting case in which structural uncertainty is negligible. The averaging principle itself is independent of the particular parameter priors used within each structure, although its concrete predictions depend on both the parameter priors and the prior probabilities assigned to the alternative structures.
+
+# Divergence of Structural and Strength-Based Predictions
+Posterior link probability, Bayesian causal power under SS priors, and structure-averaged strength represent distinct quantities that capture different aspects of causal induction. Although these quantities can produce similar qualitative patterns, they often differ quantitatively, for instance because evidence for a link and evidence about its strength need not coincide. We first illustrate these divergences across positive, zero, and negative contingencies. We then focus on causal induction under zero contingency, which has played a central role in the development of Bayesian accounts because these models can predict positive causal judgments that appear irrational under contingency-based norms but can arise naturally from inference under uncertainty.
+
+
+## Model Predictions Across Varying Contingencies
+
+@fig-example-predictions illustrates these differences for prototypical positive, zero, and negative contingencies. The positive and negative contingencies are evaluated under noisy-OR (generative) and noisy-AND-NOT (preventive) link structures, respectively.^[Although the linear parameterization can be embedded in a Bayesian model, it requires joint constraints on their parameters to ensure valid probabilities [@Griffiths2005], can support inappropriate generalizations across changes in baseline risk [@meder2025causal_RRR_ARR], and has provided poorer accounts of human causal judgments than corresponding models based on noisy-OR and noisy-AND-NOT generating functions [@Lu2008bayesianpriors]. We therefore focus on noisy-OR parameterizations for generative relations and noisy-AND-NOT parameterizations for preventive relations.] For the zero-contingency example, the hypothesis space contains a noisy-OR link structure and a no-link structure. Posterior link probability and structure-averaged strength were computed with equal prior probabilities over the competing structures and uniform priors over their parameters, whereas Bayesian strength is estimated under ($S_1$) using sparse-and-strong (SS) priors over the strength parameters. Estimates for preventive relations are also shown as positive values because both causal power and the posterior probability of the preventive link structure are defined on the unit interval, with their preventive direction encoded by the noisy-AND-NOT functional form and the identity of the preventive structure. For comparison with human judgments, these quantities can be transformed to match the response scale, for example by assigning preventive estimates a negative sign on a scale ranging from -100 to +100.
+
+Across the three conditions, all models predict the same qualitative ordering: judgments are highest for the positive contingency, lowest for the zero contingency, and intermediate for the negative contingency. Their predictions differ substantially in magnitude, however, with posterior link probability yielding the largest estimates and structure-averaged strength the smallest. The zero-contingency example highlights a central normative implication shared by all three Bayesian accounts: each yields a nonzero estimate even though the effect occurs equally often in the presence and absence of the candidate cause. This contrasts with measures that estimate causal strength directly from the observed contingency and therefore judge the putative cause to be ineffective. Importantly, while the Bayesian accounts agree on the qualitative prediction of a positive judgment, they make distinct quantitative predictions because they result from different underlying inference mechanisms.
+
+![Example model predictions. A) Example scenarios for positive, zero, and negative contingencies between a cause $C$ and an effect $E$. B) Observed probability of the effect given the presence and absence of the cause. C) Model predictions for the three scenarios, illustrating the distinct predictions of structure-averaged strength, Bayesian strength estimation under SS priors, and posterior link probability.](figures/fig2_example_predictions.png){#fig-example-predictions width=80%}
+
+<!-- ## Why Zero Contingency Does Not Imply Zero Evidence for Causality -->
+## Causal Induction Under Zero Contingency
+
+When the effect is equally likely in the presence and absence of a candidate cause, $P(e\mid c)=P(e\mid\neg c)$ and hence $\Delta P=0$. Nevertheless, participants commonly report positive judgments of causality or control when learning under zero contingency [@jenkins1965judgment; @Wasserman1993; @Allan1993; @buehner2003covariation; @kao1993assessment; @chow2024instructions_illusion]. Because zero contingency is often taken to imply the absence of causality, these findings are often interpreted as cognitive bias and an _illusion of causality_ [@Matute_2015_illusion_causality; @vinas2023scarcity]. Moreover, the magnitude of these judgments varies systematically with outcome density: judgments increase as the effect becomes more frequent, even though contingency remains zero [@vallee2005outcome_density_bias]. 
+
+From a Bayesian perspective, however, neither positive judgments under zero contingency nor their increase with outcome density necessarily imply bias. Because the absence of contingency in an observed sample often does not conclusively rule out a causal relation, the three Bayesian quantities can remain positive, albeit for different reasons. @fig-outcome-density shows their predictions for zero-contingency data with $N=40$ observations, equal numbers of cause-present and cause-absent observations, and outcome density varying from 0.1 to 0.9. Posterior link probability and structure-averaged strength are computed under equal prior probabilities for the link and no-link structures, $P(S_1)=P(S_0)=0.5$, with uniform parameter priors: Bayesian strength is computed under structure $S_1$ with SS priors.
+
+Notably, all three models predict the same qualitative outcome-density effect: estimates increase as the effect becomes more frequent, even though the contingency remains zero. The outcome density effect arises because a strong background cause (i.e., high values of $P(e\mid\neg c)$ leaves less opportunity for the candidate cause to increase the observed effect probability, allowing larger values of $w_c$ to remain compatible with little or no observed contingency. This in turn increases both the range of link-structure parameters supported by the data and, under SS priors, the posterior mean of causal strength conditional on $S_1$. The models nevertheless differ substantially in magnitude because they handle this uncertainty in different ways. Posterior link probability reflects residual belief that a causal relation exists, conditional Bayesian strength reflects uncertainty about its magnitude under $S_1$ together with the influence of the SS prior, and structure-averaged strength combines strength estimated under $S_1$ with uncertainty about whether the link actually exists. Thus, similar qualitative patterns can arise from distinct inferential mechanisms and yield markedly different predictions about the magnitude of causal judgment under zero contingency.
+
+
+```{r}
+# -------------------------------------------------------------------------
+# Zero-contingency simulations across outcome density
+# -------------------------------------------------------------------------
+# All conditions satisfy:
+# P(e | c) = P(e | not c)
+#
+# The link hypothesis is noisy-OR (generative) S1 versus S0.
+#
+# Model predictions:
+# 1. Posterior link probability
+# 2. Conditional Bayesian strength under S1 with SS priors
+# 3. Structure-averaged strength
+# -------------------------------------------------------------------------
+
+# --- Simulation parameters ----------------------------------------------
+
+m <- 10^6
+
+outcome_density_levels <- seq(0.1, 0.9, by = 0.1)
+sample_sizes <- 40
+
+# -------------------------------------------------------------------------
+# Construct zero-contingency data
+# -------------------------------------------------------------------------
+# P(c) = P(not c) = .5
+#
+# Cell order:
+# [N_00, N_01, N_10, N_11]
+#
+# N_00 = N(not c, not e)
+# N_01 = N(not c, e)
+# N_10 = N(c, not e)
+# N_11 = N(c, e)
+
+design_data <- expand_grid(
+  outcome_density = outcome_density_levels,
+  N = sample_sizes
+) %>%
+  mutate(
+    N_c = N / 2,
+    N_not_c = N / 2,
+    
+    N_11 = round(N_c * outcome_density),
+    N_10 = N_c - N_11,
+    
+    N_01 = round(N_not_c * outcome_density),
+    N_00 = N_not_c - N_01
+  ) %>%
+  select(
+    outcome_density,
+    N,
+    N_00, N_01, N_10, N_11
+  )
+
+
+df_freq <- design_data %>%
+  select(N_00, N_01, N_10, N_11) %>%
+  as.matrix()
+
+
+# -------------------------------------------------------------------------
+# Structure-induction predictions
+# -------------------------------------------------------------------------
+# SI predictions are computed separately for each structure prior.
+# Parameter priors within S0 and S1 are uniform.
+#
+# The zero-contingency hypothesis space contains:
+# S0: no link
+# S1: noisy-OR generative link
+
+set.seed(0815)
+
+  SI_density <- generate_SI_preds(
+        data = df_freq,
+        m = m,
+        S1_prior = 0.5,
+        model_type = "noisy_or_generative"
+      ) %>%
+        bind_cols(
+          design_data %>%
+            select(outcome_density)
+        ) %>%
+        
+        select(
+          outcome_density,
+          S1_prior,
+          N,
+          N_00, N_01, N_10, N_11,
+          S0_marglik, S1_marglik,
+          S0_pp, S1_pp,
+          S1_wc_pp,
+          SI_mean_wc
+        )
+    
+
+# -------------------------------------------------------------------------
+# Conditional strength under S1 with sparse-and-strong priors
+# -------------------------------------------------------------------------
+# This model conditions on S1 and therefore does not use a structure prior.
+# It is computed once for each outcome-density × sample-size condition.
+
+  set.seed(0815)
+  
+  SS_density <- generate_SS_strength_preds(
+    data = df_freq,
+    m = m,
+    alpha = 5,
+    model_type = "noisy_or_generative"
+  ) %>%
+    bind_cols(
+      design_data %>%
+        select(outcome_density)
+    ) %>%
+    select(
+      outcome_density,
+      N,
+      N_00, N_01, N_10, N_11,
+      SS_wc_pp,
+      SS_marglik,
+      SS_logmarglik
+    )
+  
+
+# -------------------------------------------------------------------------
+# Combine model predictions
+# -------------------------------------------------------------------------
+
+df_density <- SI_density %>%
+  left_join(
+    SS_density,
+    by = c(
+      "outcome_density",
+      "N",
+      "N_00", "N_01", "N_10", "N_11"
+    )
+  ) %>%
+  mutate(
+    posterior_link = S1_pp,
+    strength_SS = SS_wc_pp,
+    structure_averaged = SI_mean_wc
+  )
+
+```
+
+
+```{r}
+#| fig-width: 5
+#| fig-height: 3
+#| label: fig-outcome-density
+#| fig-cap: "Posterior link probability, Bayesian strength under SS priors, and structure-averaged strength for zero-contingency data as a function of outcome density."
+
+# -------------------------------------------------------------------------
+# Prepare plotting data
+# -------------------------------------------------------------------------
+
+df_density_plot_long <- 
+  df_density %>%
+  select(
+    outcome_density,
+    posterior_link,
+    strength_SS,
+    structure_averaged
+  ) %>%
+  pivot_longer(
+    cols = c(
+      posterior_link,
+      strength_SS,
+      structure_averaged
+    ),
+    names_to = "model",
+    values_to = "prediction"
+  ) %>%
+  mutate(
+    model = recode(
+      model,
+      posterior_link =
+        "Posterior link probability",
+      strength_SS =
+        "Bayesian strength (SS priors)",
+      structure_averaged =
+        "Structure-averaged strength"
+    ),
+    model = factor(
+      model,
+      levels = c(
+        "Structure-averaged strength",
+        "Bayesian strength (SS priors)",
+        "Posterior link probability"
+      )
+    )
+  )
+
+
+# -------------------------------------------------------------------------
+# Plot
+# -------------------------------------------------------------------------
+
+colors_models_density <- c(
+  "Posterior link probability" = "#009E73",
+  "Bayesian strength (SS priors)" = "#56B4E9",
+  "Structure-averaged strength" = "#D55E00"
+)
+
+shapes_models_density <- c(
+  "Posterior link probability" = 21,
+  "Bayesian strength (SS priors)" = 22,
+  "Structure-averaged strength" = 24
+)
+
+p_outcome_density <- 
+  ggplot(
+  df_density_plot_long,
+  aes(
+    x = outcome_density,
+    y = prediction * 100,
+    group = model,
+    colour = model,
+    fill = model,
+    shape = model
+  )
+) +
+  geom_line(
+    linewidth = 1
+  ) +
+  geom_point(
+    size = 3,
+    colour = "black",
+    stroke = 0.5
+  ) +
+    scale_x_continuous(
+      name = expression(
+        "Outcome density:" ~
+          italic(P)(italic(e)) * "=" *
+          italic(P)(italic(e) ~ "|" ~ italic(c)) * "=" *
+          italic(P)(italic(e) ~ "|" ~ "¬" ~ italic(c))
+      ),
+      breaks = outcome_density_levels,
+      labels = outcome_density_levels
+    ) +
+  scale_y_continuous(
+    name = "Model prediction",
+    limits = c(0, 100),
+    breaks = c(0, 25, 50, 75, 100),
+    expand = expansion(mult = c(0, 0.02))
+  ) +
+  scale_colour_manual(
+    values = colors_models_density
+  ) +
+  scale_fill_manual(
+    values = colors_models_density
+  ) +
+  scale_shape_manual(
+    values = shapes_models_density
+  ) +
+  theme_classic() +
+    theme(
+      plot.title = element_text(size = 18),
+      axis.text = element_text(color = "black", size =12),  
+      axis.title = element_text(color = "black", size =14),
+      axis.text.x = element_text(),  
+      panel.grid = element_blank(),  
+      axis.ticks.y = element_blank(), 
+      axis.line.y = element_line(color = "black"),
+      strip.text =  element_text(size = 14, colour="black"), 
+      strip.background =element_blank(),
+      legend.key.height = unit(0.9, "lines"),
+      legend.background = element_rect(fill = "transparent", colour = NA),
+      legend.box.background = element_rect(fill = "transparent", colour = NA),
+      legend.title = element_blank(),
+      legend.position="inside",
+      legend.text = element_text(size = 12),
+      legend.position.inside = c(0.3, 0.85),
+      panel.spacing = unit(1.2, "lines")
+    ) 
+  
+p_outcome_density
+
+ggsave(
+  filename = "plots/fig3_outcome_density_predictions.png",
+  plot = p_outcome_density,
+  dpi = 300,
+  width = 5,
+  height = 3
+)
+```
+
+# Bayesian Causal Induction and Human Judgments {#sec-human-judgments-reanalysis}
+
+The preceding analyses have clarified the conceptual differences of three quantities derived within a Bayesian framework and show how their predictions can diverge. From a normative perspective, these quantities characterize distinct ways in which an ideal learner could use observed data to infer causal structure, causal strength, or both. 
+
+A further question is whether these quantities also provide plausible descriptive accounts of human causal judgments. This is important because task wording may not uniquely determine what quantity learners aim to infer and report. Studies commonly ask how “strongly” one event causes another or how much “causal influence” a cause has on an effect, for example by asking participants to rate how strongly a candidate cause produces an outcome on a scale from “does not cause the outcome at all” to “causes the outcome every time” [e.g., @buehner2003covariation]. While such questions are nominally about the strength of a causal relation, participants may map estimated causal strength under a given model, structural evidence for a causal relation, or some combination of the two onto the same response scale. Consistent with this ambiguity, structural quantities such as causal support and posterior link probability have been shown to capture variation in causal judgments elicited with strength-related wording [@Griffiths2005; @griffiths2009theory]. 
+
+To assess whether structure-averaged strength also provides a viable descriptive account, we compared posterior link probability, Bayesian causal power under SS priors, and structure-averaged causal strength across a broad set of published data. The data set was based on a compilation by @perales2007models, who reported observed frequencies and mean causal ratings from nine studies. The various contingency conditions were subsequently used to evaluate the SS Power PC model [@Lu2008bayesianpriors] and posterior link probability [@griffiths2009theory]. We supplemented the compilation with additional studies that reported condition-level mean judgments in numerical form; including conditions from @buehner2003covariation, @White2003_EvaluationOfEvidence, @white2003making, @Liljeholm2009influence, and @White2004causal. The resulting data set comprised 12 studies, 29 experiments, and 348 contingency conditions. Positive contingencies accounted for 53% of conditions, negative contingencies for 28%, and zero contingencies for 19%. The studies varied in cover story, learning procedure, presentation format, judgment wording, and causal framing, providing a heterogeneous yet broad basis for comparing model predictions with human judgments.
+
+
+```{r}
+#| label: tbl-model-data
+#| tbl-cap: "Overview of the causal learning studies included in the model comparison."
+#| echo: false
+#| warning: false
+#| message: false
+#| 
+
+source("meta_analysis_preprocessing.R") # reads data for meta analysis from various csv files stored in directory "data"
+
+# --- get data for meta analysis --------------
+df_data <- meta_analysis_preprocessing()
+
+if (knitr::is_html_output()) {
+
+  df_data %>%
+    select(-c(id, reference)) %>% 
+    knitr::kable(
+      format = "html",
+      digits = 2,
+      na = ""
+    ) %>%
+    kableExtra::kable_styling(
+      bootstrap_options = c("striped", "hover", "condensed"),
+      full_width = TRUE
+    ) %>% 
+    kableExtra::scroll_box(
+      height = "400px",
+      width = "100%"
+    )
+
+} else {
+
+  data.frame(
+    Note = "The complete table is available in the HTML version."
+  ) %>%
+    knitr::kable(
+      format = "pipe"
+    )
+}
+
+
+
+# df_data %>%
+#   select(-c(id, reference)) %>% 
+#   knitr::kable(
+#     digits = 2,
+#     booktabs = TRUE,
+#     na = ""
+#   ) %>%
+#   kable_styling(bootstrap_options = c("striped", "hover", "condensed"),
+#                 full_width = TRUE) %>% 
+#   scroll_box(height = "400px", width = "100%")
+
+
+# Studies: distinct values of study
+# Experiments: distinct combinations of study and experiment
+# Conditions: rows in the final dataset
+# Proportions: proportions of experimental conditions, not participants
+
+# number of publications
+# df_data %>%
+#   summarise(n = n_distinct(reference)) %>%
+#   pull(n)
+
+# number of conditions across all studies
+# df_data %>%
+#   summarise(n = n_distinct(id)) 
+
+# number of experiments across all studies
+# df_data %>%
+#   group_by(study) %>% 
+#   summarise(n = n_distinct(experiment)) %>% 
+#   summarise(experiments = sum(n))
+
+# number of contingency conditions
+# contingency_summary <-
+  # df_data %>%
+  # count(sample_direction, name = "n_conditions") %>%
+  # mutate(
+  #   proportion = n_conditions / sum(n_conditions),
+  #   percent = round(100 * proportion, 1)
+  # )
+
+# total number of participants: sum over experiments
+    # df_data  %>%
+    # distinct(study, experiment, n) %>%
+    # group_by(study) %>%
+    # summarise(
+    #   total_n = sum(n, na.rm = TRUE),
+    #   n_experiments = n(),
+    #   n_missing = sum(is.na(n)),
+    #   .groups = "drop"
+    # ) %>% 
+    # summarise(total_n = sum(total_n))
+    
+# experimental framing 
+  # df_data %>%
+  # count(framing, name = "n_conditions") %>%
+  # mutate(
+  #   proportion = n_conditions / sum(n_conditions),
+  #   percent = round(100 * proportion, 1)
+  # )
+  
+```
+
+
+## From model predictions to human judgment 
+For each set of event frequencies, we computed predictions from the three models and compared them with the reported mean human judgment (see @sec-appendix-model-comparison for details).
+Judgments were transformed to a common scale ranging from $-100$ to $+100$, with positive values indicating a generative relation, negative values indicating a preventive relation, and zero indicating no causal influence. Model predictions were derived in accordance with the causal framing of the task and mapped to the same signed response scale.^[The data from @perales2004cause were available only through the compilation reported by @perales2007models. As the study included three positive-contingency conditions and all mean judgments were positive, we classified its framing as generative.] Generative judgments on a $0$–$100$ scale were mapped to positive predictions by multiplying model estimates by $100$. Preventive judgments were mapped to negative predictions by multiplying estimates by $-100$. A bidirectional scale ranging from $-100$ to $+100$, with negative and positive endpoints denoting preventive and generative influence, respectively, was treated as leaving causal direction open. In such cases, generative and preventive components were combined as signed quantities, with generative evidence or strength contributing positively and preventive evidence or strength contributing negatively. 
+
+Posterior link probability was computed following @griffiths2009theory. For unidirectional conditions, the prediction was the posterior probability of the corresponding generative or preventive link structure relative to the no-link structure, with preventive predictions assigned a negative sign. For bidirectional conditions, the hypothesis space comprised a no-link structure, $S_0$, a generative link structure, $S_{1+}$, and a preventive link structure, $S_{1-}$, with equal prior probabilities over the three structure and uniform priors over all parameters. The prediction was obtained from the difference between the posterior probabilities of the generative and preventive link structures, $P(S_{1+}\mid D)-P(S_{1-}\mid D)$.
+
+Predictions for Bayesian causal power under SS priors were derived following @Lu2008bayesianpriors. For unidirectional conditions, causal strength was estimated as the posterior mean strength under the corresponding link structure. Preventive estimates were assigned a negative sign. For bidirectional conditions, the posterior mean strengths under the generative and preventive model were weighted by their relative marginal likelihoods and combined as a signed estimate.
+
+Structure-averaged causal strength additionally incorporated uncertainty about whether a causal link existed. For unidirectional conditions, strength was averaged over $S_0$ and the corresponding generative or preventive link structure using equal structure priors.For bidirectional conditions, strength was averaged over $S_0$, $S_{1+}$, and $S_{1-}$, with equal prior probabilities over structures und uniform priors over all paramaters. The signed prediction was obtained by weighting the generative and preventive strength estimates by their posterior structure probabilities and subtracting the preventive component from the generative component; the no-link structure contributed zero. Generative strength contributed positively, preventive strength negatively, and the no-link structure contributed zero.
+
+```{r}
+# Model comparison: get model predictions
+
+# --- make df with all experimental conditions (cell frequencies) --------------
+# cell input order for models: [d,c,b,a] = [N_00,N_01,N_10,N_11]
+df_freq <- df_data %>% 
+  select(N_00,  N_01, N_10, N_11) %>% 
+  as.matrix()
+
+# --- Generate SI predictions in the same row order as df_data --------------
+# generate SI predictions under uniform priors for structure, P(S1)=P(S0)=0.5
+
+m <- 10^6
+
+# generative (noisy-OR)
+set.seed(0815)
+SI_gen <- generate_SI_preds(
+  df_freq,
+  m = m,
+  S1_prior = 0.5,
+  model_type = "noisy_or_generative"
+) %>%
+  mutate(id = factor(row_number())) %>%
+  select(
+    id,
+    N, N_00, N_01, N_10, N_11,
+    BF10, logBF10,
+    S0_marglik, S1_marglik,
+    S0_logmarglik, S1_logmarglik,
+    S0_pp, S1_pp,
+    S1_wc_pp,
+    SI_mean_wc
+  ) %>%
+  rename(
+    BF10_gen = BF10,
+    logBF10_gen = logBF10,
+    S0_marglik_gen = S0_marglik,
+    S1_marglik_gen = S1_marglik,
+    S0_logmarglik_gen = S0_logmarglik,
+    S1_logmarglik_gen = S1_logmarglik,
+    S0_pp_gen = S0_pp,
+    S1_pp_gen = S1_pp,
+    S1_wc_pp_gen = S1_wc_pp,
+    SI_mean_wc_gen = SI_mean_wc
+  )
+
+# preventive (noisy-AND-NOT)
+set.seed(0815)
+SI_prev <- generate_SI_preds(
+  df_freq,
+  m = m,
+  S1_prior = 0.5,
+  model_type = "noisy_and_not_preventive"
+) %>%
+  mutate(id = factor(row_number())) %>%
+  select(
+    id,
+    N, N_00, N_01, N_10, N_11,
+    BF10, logBF10,
+    S0_marglik, S1_marglik,
+    S0_logmarglik, S1_logmarglik,
+    S0_pp, S1_pp,
+    S1_wc_pp,
+    SI_mean_wc
+  ) %>%
+  rename(
+    BF10_prev = BF10,
+    logBF10_prev = logBF10,
+    S0_marglik_prev = S0_marglik,
+    S1_marglik_prev = S1_marglik,
+    S0_logmarglik_prev = S0_logmarglik,
+    S1_logmarglik_prev = S1_logmarglik,
+    S0_pp_prev = S0_pp,
+    S1_pp_prev = S1_pp,
+    S1_wc_pp_prev = S1_wc_pp,
+    SI_mean_wc_prev = SI_mean_wc
+  )
+
+# --- Generate SS priors prediction: posterior causal strength under S1 given sparse and strong priors (Lu et al., 2008) --------------
+# only structure S1 is considered
+# generative or preventive SS prior over wc and wa:
+# base rate bc sampled from uniform Beta(1,1) prior as in SI model
+
+# generative (noisy-OR)
+set.seed(0815)
+SS_gen <- generate_SS_strength_preds(
+  df_freq,
+  m = m,
+  alpha = 5,
+  model_type = "noisy_or_generative"
+) %>%
+  mutate(id = factor(row_number())) %>%
+  select(id, 
+         N, N_00, N_01, N_10, N_11,
+         SS_wc_pp, SS_marglik, SS_logmarglik) %>%
+  rename(SS_wc_pp_gen = SS_wc_pp,
+         SS_marglik_gen = SS_marglik,
+         SS_logmarglik_gen = SS_logmarglik)
+
+# preventive (noisy-AND-NOT)
+set.seed(0815)
+SS_prev <- generate_SS_strength_preds(
+  df_freq,
+  m = m,
+  alpha = 5,
+  model_type = "noisy_and_not_preventive"
+) %>%
+  mutate(id = factor(row_number())) %>%
+  select(id, 
+         N, N_00, N_01, N_10, N_11,
+         SS_wc_pp, SS_marglik, SS_logmarglik) %>%
+  rename(SS_wc_pp_prev = SS_wc_pp,
+         SS_marglik_prev = SS_marglik,
+         SS_logmarglik_prev = SS_logmarglik)
+
+# --- reference table with all relevant info --------------------------
+model_predictions <- df_data %>%
+  #select(study, experiment, id, a, b, c, d, deltaP, type_deltaP, rating) %>%
+  select(-reference) %>%
+  left_join(SI_gen, by = c("id", "N_00",  "N_01", "N_10", "N_11")) %>%
+  left_join(SI_prev, by = c("id", "N_00",  "N_01", "N_10", "N_11", "N")) %>%
+  left_join(SS_gen, by = c("id", "N_00",  "N_01", "N_10", "N_11", "N")) %>%
+  left_join(SS_prev, by = c("id", "N_00",  "N_01", "N_10", "N_11", "N")) %>%
+  rename(human = rating)
+
+
+# --- generate model predictions -----------------------------------------
+# specify which functional form is used (e.g. generative via noisy-OR or preventive via noisy-AND-NOT)
+# using the framing of the causal inference context
+# generative: participants' task was to infer a generative relation (e.g. on a scale from 0-100)
+# preventive: participants' task was to infer a preventive relation (e.g. on a scale from -100 to 0)
+# bidirectional: participants' were informed that the relation could be positive or negative (e.g. on a scale from -100  to +100)
+# In bidirectional conditions, generative and preventive predictions are combined using their posterior or marginal-likelihood weights
+
+model_predictions <- model_predictions %>%
+  mutate(
+   
+    # ------------------------------------------------------------------
+    # Posterior link probability and signed response prediction
+    # ------------------------------------------------------------------
+    # For bidirectional framing, following Griffiths and Tenenbaum
+    # (2009, pp. 681–682), jointly compare three structures using a
+    # uniform prior:
+    #   P(S0)            = 1/3
+    #   P(S1_generative) = 1/3
+    #   P(S1_preventive) = 1/3
+    
+    # Unnormalized structure posteriors:
+    # marginal likelihood multiplied by structure prior.
+    SI_bidir_S0_unnorm = (1/3) * S0_marglik_gen,
+    SI_bidir_S1_gen_unnorm = (1/3) * S1_marglik_gen,
+    SI_bidir_S1_prev_unnorm = (1/3) * S1_marglik_prev,
+
+    # Common normalizing constant for the three structures.
+    SI_bidir_normalizer = SI_bidir_S0_unnorm + SI_bidir_S1_gen_unnorm +  SI_bidir_S1_prev_unnorm,
+    
+    # Posterior probabilities of the three structures.
+    SI_bidir_S0_pp = SI_bidir_S0_unnorm / SI_bidir_normalizer, # structure S0
+    SI_bidir_S1_gen_pp = SI_bidir_S1_gen_unnorm / SI_bidir_normalizer, # S1 generative
+    SI_bidir_S1_prev_pp = SI_bidir_S1_prev_unnorm / SI_bidir_normalizer, # S1 preventive
+    
+    # check
+    # model_predictions$SI_bidir_S1_gen_pp + model_predictions$SI_bidir_S1_prev_pp + model_predictions$SI_bidir_S0_pp
+    
+    # Posterior probability that some causal link exists,
+    # irrespective of whether it is generative or preventive.
+    SI_bidir_link_pp = SI_bidir_S1_gen_pp + SI_bidir_S1_prev_pp,
+    
+    # Equivalent:SI_bidir_link_pp = 1 - SI_bidir_S0_pp
+    
+    # Prediction on the signed -100 to +100 response scale.
+    # For bidirectional framing, Griffiths and Tenenbaum map the
+    # three-structure posterior to:
+    # -100 * P(S1_preventive | D) + 100 * P(S1_generative | D).
+    S1_pp_prediction = case_when(
+      framing == "generative" ~ S1_pp_gen * 100,
+      framing == "preventive" ~ -S1_pp_prev * 100,
+      framing == "bidirectional" ~ -100 * SI_bidir_S1_prev_pp + 100 * SI_bidir_S1_gen_pp
+    ),
+    
+    # ------------------------------------------------------------------
+    # Mean posterior strength under S1 with sparse-and-strong (SS) priors over w_a and w_c (Lu et al, 2008)
+    # ------------------------------------------------------------------
+    
+    # Version 1: sparse-and-strong (SS) priors over w_a and w_c (Lu et al, 2008)
+    # for generative and preventive framing the corresponding S1 model (noisy-or vs. noisy-and-not) are used
+    # For bidirectional judgments, following Lu et al. (2008, Eq. 15, p.968),
+    # the positive generative and negative preventive posterior mean
+    # strengths are averaged using P(g | D), with g={S1_generative, S1_preventive}
+    # obtained by normalizing the generative and preventive S1 marginal likelihoods under SS priors.
+    SS_gen_direction_pp = SS_marglik_gen / (SS_marglik_gen + SS_marglik_prev),
+    SS_prev_direction_pp = SS_marglik_prev / (SS_marglik_gen + SS_marglik_prev),
+    
+    SS_wc_prediction = case_when(
+      framing == "generative" ~ SS_wc_pp_gen * 100,
+      framing == "preventive" ~ SS_wc_pp_prev * -100,
+      framing == "bidirectional" ~
+        SS_gen_direction_pp  * (SS_wc_pp_gen  * 100) +
+        SS_prev_direction_pp * (SS_wc_pp_prev *-100)
+    ),
+    
+    # ------------------------------------------------------------------
+    # SI mode: Structure-averaged strength
+    # ------------------------------------------------------------------
+    # this approach considers S0 and S1 (generative and preventive parameterization, respectively)
+    # for generative and preventive framing, with uniform prior over structures, P(S0)=P(S1)=0.5
+    # For bidirectional framing, following Griffiths & Tenenbaum (2009) we use a uniform prior over all three structures:
+    #   P(S0)            = 1/3
+    #   P(S1_generative) = 1/3
+    #   P(S1_preventive) = 1/3
+   
+    # S0 is the same model in the generative and preventive SI runs,
+    # so only one S0 marginal likelihood is used. sanity check:
+    # all.equal(model_predictions$S0_marglik_gen, model_predictions$S0_marglik_prev)
+    
+    # these quantitities are computed above 
+    # Compute the unnormalized posterior probability of each structure
+    # as marginal likelihood × structure prior.
+    # SI_bidir_S0_unnorm =  1/3 * S0_marglik_gen,
+    # SI_bidir_S1_gen_unnorm =  1/3 * S1_marglik_gen,
+    # SI_bidir_S1_prev_unnorm =  1/3 * S1_marglik_prev,
+    # 
+    # Normalize across all three structures so that their posterior
+    # probabilities sum to 1.
+    # SI_bidir_normalizer = SI_bidir_S0_unnorm + SI_bidir_S1_gen_unnorm + SI_bidir_S1_prev_unnorm,
+    
+    # SI_bidir_S0_pp = SI_bidir_S0_unnorm / SI_bidir_normalizer, 
+    # SI_bidir_S1_gen_pp = SI_bidir_S1_gen_unnorm / SI_bidir_normalizer,
+    # SI_bidir_S1_prev_pp =  SI_bidir_S1_prev_unnorm / SI_bidir_normalizer,
+    # 
+    # Bayesian model average of causal strength across the three structures:
+    # generative strength enters positively, preventive strength negatively,
+    # and S0 contributes zero.
+    
+    SI_mean_wc_prediction = case_when(
+      framing == "generative" ~ SI_mean_wc_gen * 100,
+      framing == "preventive" ~ SI_mean_wc_prev * -100,
+      framing == "bidirectional" ~
+        SI_bidir_S1_gen_pp  * ( S1_wc_pp_gen  * 100) +
+        SI_bidir_S1_prev_pp * (S1_wc_pp_prev * -100) +
+        SI_bidir_S0_pp      * 0
+    )
+  )
+
+```
+
+## Model comparison across studies
+
+@fig-model_comparison summarizes the models' predictive accuracy across studies using two measures. First, we computed correlations between model predictions and human judgments, which indicate how well each model captures variation across conditions (@fig-model_comparison a). Second, we report root mean squared error (RMSE), which measures the size of the prediction error  (@fig-model_comparison b). 
+
+Structure-averaged causal strength best accounted for human judgments, yielding the highest average correlation and the lowest average RMSE. The differences between structure-averaged strength and Bayesian causal power under SS priors were modest, however, suggesting that both strength-based models captured human judgments well. Posterior link probability performed less well on both measures, showing lower correlations and substantially larger RMSEs across studies. The higher predictive accuracy of structure-averaged strength indicates that human strength judgments are not based solely on parameter estimation under an assumed causal link, nor solely on structural evidence for the existence of a link. Instead, they appear to integrate both quantities, consistent with the Bayesian estimate of causal strength under structure uncertainty.
+
+```{r}
+#| fig-width: 9 # 16
+#| fig-height: 8 # 6
+#| label: fig-model_comparison
+#| fig-cap: "Predictive accuracy of models for several published studies."
+# -------------------------------------------------------------------------
+# Model predictions in long format ----------------------------------------
+# -------------------------------------------------------------------------
+
+model_predictions_long <- model_predictions %>%
+  select(
+    study,
+    human,
+    sample_direction,
+    S1_pp_prediction,
+    SS_wc_prediction,
+    SI_mean_wc_prediction
+  ) %>%
+  pivot_longer(
+    cols = -c(study, human, sample_direction),
+    names_to = "model",
+    values_to = "prediction"
+  ) %>%
+  filter(
+    !is.na(human),
+    !is.na(prediction)
+  ) %>%
+  mutate(
+    model = recode(
+      model,
+      S1_pp_prediction =
+        "Posterior link\nprobability",
+      SS_wc_prediction =
+        "Bayesian strength\n(SS priors)",
+      SI_mean_wc_prediction =
+        "Structure-averaged\nstrength"
+    ),
+    model = factor(
+      model,
+      levels = c(
+        "Structure-averaged\nstrength",
+        "Posterior link\nprobability",
+        "Bayesian strength\n(SS priors)"
+      )
+    ),
+    sample_direction = recode(
+      sample_direction,
+      "generative" = "Positive\ncontingency",
+      "zero"       = "Zero\ncontingency",
+      "preventive" = "Negative\ncontingency"
+    )
+  )
+
+
+# -------------------------------------------------------------------------
+# Correlations between model predictions and human ratings
+# -------------------------------------------------------------------------
+
+# --- Overall pooled correlation per model ------------------------------------
+# This treats each condition as one observation and weights larger studies more.
+
+model_correlations_overall <- model_predictions %>%
+  select(
+    human,
+    S1_pp_prediction,
+    SS_wc_prediction,
+    SI_mean_wc_prediction
+  ) %>%
+  pivot_longer(
+    cols = -human,
+    names_to = "model",
+    values_to = "prediction"
+  ) %>%
+  filter(!is.na(human), !is.na(prediction)) %>%
+  mutate(
+    model = recode(
+      model,
+      S1_pp_prediction      = "Posterior link\nprobability",
+      SS_wc_prediction      = "Bayesian strength\n(SS priors)",
+      SI_mean_wc_prediction = "Structure-averaged\nstrength"
+    )
+  ) %>%
+  group_by(model) %>%
+  summarise(
+    study = "All studies pooled",
+    n = n(),
+    test = list(cor.test(human, prediction, method = "pearson")),
+    .groups = "drop"
+  ) %>%
+  mutate(
+    r = map_dbl(test, ~ unname(.x$estimate)),
+    CI_low = map_dbl(test, ~ .x$conf.int[1]),
+    CI_high = map_dbl(test, ~ .x$conf.int[2]),
+    row_type = "Overall pooled"
+  ) %>%
+  select(-test)
+
+# --- Correlations by study ---------------------------------------------------
+# Note: Fisher-z confidence intervals require n > 3.
+# Studies with too few conditions, e.g. Shanks & Perales (2004), are retained but have no CI.
+
+# helper function: returns NA if correlation/CI cannot be computed
+safe_cor_test <- function(x, y) {
+  ok <- complete.cases(x, y)
+  x <- x[ok]
+  y <- y[ok]
+  
+  if (length(x) < 4 || sd(x) == 0 || sd(y) == 0) {
+    return(list(
+      r = NA_real_,
+      CI_low = NA_real_,
+      CI_high = NA_real_,
+      p_value = NA_real_
+    ))
+  }
+  
+  test <- cor.test(x, y, method = "pearson")
+  
+  list(
+    r = unname(test$estimate),
+    CI_low = unname(test$conf.int[1]),
+    CI_high = unname(test$conf.int[2]),
+    p_value = unname(test$p.value)
+  )
+}
+# -------------------------------------------------------------------------
+# Mean correlation across studies: plain average --------------------------
+# -------------------------------------------------------------------------
+# This gives each study equal weight and averages raw study-level correlations.
+
+model_correlations_by_study <- model_predictions %>%
+  select(
+    study,
+    human,
+    S1_pp_prediction,
+    SS_wc_prediction,
+    SI_mean_wc_prediction
+  ) %>%
+  pivot_longer(
+    cols = -c(study, human),
+    names_to = "model",
+    values_to = "prediction"
+  ) %>%
+  filter(!is.na(human), !is.na(prediction)) %>%
+  mutate(
+    model = recode(
+      model,
+      S1_pp_prediction      = "Posterior link\nprobability",
+      SS_wc_prediction      = "Bayesian strength\n(SS priors)",
+      SI_mean_wc_prediction = "Structure-averaged\nstrength"
+    )
+  ) %>%
+  group_by(study, model) %>%
+  summarise(
+    n = n(),
+    r = cor(
+      human,
+      prediction,
+      use = "pairwise.complete.obs"
+    ),
+    test = list(
+      if (
+        n() >= 4 &&
+        sd(human, na.rm = TRUE) > 0 &&
+        sd(prediction, na.rm = TRUE) > 0
+      ) {
+        cor.test(
+          human,
+          prediction,
+          method = "pearson"
+        )
+      } else {
+        NULL
+      }
+    ),
+    .groups = "drop"
+  ) %>%
+  mutate(
+    CI_low = map_dbl(
+      test,
+      \(x) if (is.null(x)) NA_real_ else unname(x$conf.int[1])
+    ),
+    CI_high = map_dbl(
+      test,
+      \(x) if (is.null(x)) NA_real_ else unname(x$conf.int[2])
+    )
+  ) %>%
+  select(-test) %>%
+  arrange(model, desc(r))
+
+# --- Mean correlation across studies: plain average --------------------------
+# This gives each study equal weight and averages raw study-level correlations.
+
+model_correlations_mean_study <- model_correlations_by_study %>%
+  filter(!is.na(r), is.finite(r)) %>%
+  group_by(model) %>%
+  summarise(
+    study = "Mean across studies",
+    r_mean = mean(r),
+    r_sd = sd(r),
+    n = n(),
+    r_se = r_sd / sqrt(n),
+    CI_low = r_mean - 1.96 * r_se,
+    CI_high = r_mean + 1.96 * r_se,
+    n = sum(n, na.rm = TRUE),
+    row_type = "mean across studies",
+    .groups = "drop"
+  ) %>%
+  rename(r = r_mean)
+
+
+# --- Combine study-level, pooled, and mean across studies ------------
+study_order <- model_correlations_by_study %>%
+  filter(model == "Structure-averaged\nstrength") %>%
+  mutate(study_year = as.numeric(stringr::str_extract(study, "\\d{4}"))) %>%
+  arrange(desc(study_year), desc(study)) %>%
+  pull(study)
+
+
+model_correlations_forest <- model_correlations_by_study %>%
+  mutate(row_type = "study") %>%
+  bind_rows(
+    model_correlations_overall %>%
+      mutate(
+        study = "All studies pooled",
+        row_type = "overall pooled"
+      )
+  ) %>%
+  bind_rows(select(model_correlations_mean_study, -c(r_sd,r_se))) %>%
+  mutate(
+    study = factor(
+      study,
+      levels = c(
+        "All studies pooled",
+        "Mean across studies",
+        study_order
+      )
+    ),
+    overall_label = case_when(
+      row_type == "overall pooled" ~ paste0("r = ", sprintf("%.2f", r)),
+      row_type == "mean across studies" ~ paste0("r = ", sprintf("%.2f", r)),
+      TRUE ~ NA_character_
+    ),
+    label_x = case_when(
+      row_type %in% c("overall pooled", "mean across studies") & r > 0.75 ~ r - 0.18,
+      row_type %in% c("overall pooled", "mean across studies") ~ r + 0.08,
+      TRUE ~ NA_real_
+    ),
+    label_hjust = case_when(
+      row_type %in% c("overall pooled", "mean across studies") & r > 0.75 ~ 1,
+      row_type %in% c("overall pooled", "mean across studies") ~ 0,
+      TRUE ~ NA_real_
+    )
+  ) %>% 
+  mutate(
+    model = recode(
+      model,
+      S1_pp_prediction            = "Posterior link\nprobability",
+      SS_wc_prediction            = "Bayesian strength\n(SS priors)",
+      SI_mean_wc_prediction       = "Structure-averaged\nstrength"
+    )
+  ) %>%
+  mutate(
+    model = factor(model, levels = c(
+      "Structure-averaged\nstrength",
+      "Posterior link\nprobability",
+      "Bayesian strength\n(SS priors)"
+    ))) 
+
+# -------------------------------------------------------------------------
+# Plot correlations by study --------------------------------------
+# -------------------------------------------------------------------------
+# order models
+
+plot_r_by_study <- ggplot(model_correlations_forest, aes(x = r, y = study, color = model)) +
+  facet_wrap(~ model, nrow = 1) +
+  geom_vline(xintercept = 0, linetype = "dashed", linewidth = 0.4) +
+  geom_errorbar(
+    aes(xmin = CI_low, xmax = CI_high),
+    height = 0.15,
+    linewidth = 0.6,
+    na.rm = TRUE,
+    orientation = "y"
+  ) +
+  geom_point(
+    aes(shape = row_type, size = row_type),
+    na.rm = TRUE
+  ) +
+  geom_text(
+    aes(x = label_x, label = overall_label, hjust = label_hjust),
+    size = 3,
+    color = "black",
+    na.rm = TRUE
+  ) +
+  coord_cartesian(xlim = c(-1, 1), clip = "off") +
+  scale_color_manual(values = colors_models) +
+  scale_shape_manual(
+    values = c(
+      "study" = 16,
+      "overall pooled" = 18,
+      "mean across studies" = 15
+    )
+  ) +
+  scale_size_manual(
+    values = c(
+      "study" = 2.2,
+      "overall pooled" = 3.8,
+      "mean across studies" = 3.5
+    )
+  ) +
+  labs(
+    x = "Correlation with human ratings (r)",
+    y = NULL
+  ) +
+  theme_classic() +
+  theme(
+    legend.position = "none",
+    strip.background = element_blank(),
+    strip.text = element_text(size = 10, face = "bold"),
+    axis.text.y = element_text(size = 8),
+    plot.margin = margin(5.5, 35, 5.5, 5.5)
+  )
+
+ggsave("plots/model_comparison_cor.png", plot_r_by_study, dpi = 300, width= 13, height = 4)
+ggsave("plots/model_comparison_cor.pdf", plot_r_by_study, width= 13, height = 4)
+
+# -------------------------------------------------------------------------
+# Root mean squared error (RMSE) between model predictions and human ratings
+# -------------------------------------------------------------------------
+
+
+# --- Overall pooled RMSE per model -------------------------------------------
+# This treats each condition as one observation and thus weights larger studies more.
+# The RMSE CI is approximated with the delta method applied to MSE.
+
+model_rmse_overall <- model_predictions %>%
+  select(
+    study,
+    human,
+    S1_pp_prediction,
+    SS_wc_prediction,
+    SI_mean_wc_prediction
+  ) %>%
+  pivot_longer(
+    cols = -c(study, human),
+    names_to = "model",
+    values_to = "prediction"
+  ) %>% 
+  filter(!is.na(human), !is.na(prediction)) %>%
+  mutate(
+    sq_error = (human - prediction)^2,
+    model = recode(
+      model,
+      S1_pp_prediction            = "Posterior link\nprobability",
+      SS_wc_prediction            = "Bayesian strength\n(SS priors)",
+      SI_mean_wc_prediction       = "Structure-averaged\nstrength"
+    )
+  ) %>%
+  group_by(model) %>%
+  summarise(
+    study = "All studies pooled",
+    mse = mean(sq_error, na.rm = TRUE),
+    mse_sd = sd(sq_error, na.rm = TRUE),
+    n = n(),
+    mse_se = mse_sd / sqrt(n),
+    rmse = sqrt(mse),
+    rmse_se = mse_se / (2 * rmse),
+    CI_low = rmse - 1.96 * rmse_se,
+    CI_high = rmse + 1.96 * rmse_se,
+    row_type = "overall pooled",
+    .groups = "drop"
+  )
+
+
+# --- RMSE by study ------------------------------------------------------------
+
+model_rmse_by_study <- model_predictions %>%
+  select(
+    study,
+    human,
+    S1_pp_prediction,
+    SS_wc_prediction,
+    SI_mean_wc_prediction
+  ) %>%
+  pivot_longer(
+    cols = -c(study, human),
+    names_to = "model",
+    values_to = "prediction"
+  )  %>%
+  filter(!is.na(human), !is.na(prediction)) %>%
+  mutate(
+    sq_error = (human - prediction)^2,
+    model = recode(
+      model,
+      S1_pp_prediction            = "Posterior link\nprobability",
+      SS_wc_prediction            = "Bayesian strength\n(SS priors)",
+      SI_mean_wc_prediction       = "Structure-averaged\nstrength"
+    )
+  ) %>%
+  group_by(study, model) %>%
+  summarise(
+    mse = mean(sq_error, na.rm = TRUE),
+    mse_sd = sd(sq_error, na.rm = TRUE),
+    n = n(),
+    mse_se = mse_sd / sqrt(n),
+    rmse = sqrt(mse),
+    rmse_se = mse_se / (2 * rmse),
+    CI_low = rmse - 1.96 * rmse_se,
+    CI_high = rmse + 1.96 * rmse_se,
+    .groups = "drop"
+  ) %>%
+  arrange(model, rmse)
+
+
+# --- Mean RMSE across studies ---------------------------------
+# This gives each study equal weight and averages study-level RMSEs.
+# The interval is a descriptive 95% interval around the mean across studies.
+
+model_rmse_mean_study <- model_rmse_by_study %>%
+  group_by(model) %>%
+  summarise(
+    study = "Mean across studies",
+    rmse_mean = mean(rmse, na.rm = TRUE),
+    rmse_sd = sd(rmse, na.rm = TRUE),
+    n_studies = n(),
+    rmse_se = rmse_sd / sqrt(n_studies),
+    CI_low = rmse_mean - 1.96 * rmse_se,
+    CI_high = rmse_mean + 1.96 * rmse_se,
+    n = sum(n, na.rm = TRUE),
+    row_type = "mean across studies",
+    .groups = "drop"
+  ) %>%
+  rename(rmse = rmse_mean)
+
+
+# --- Combine study-level, pooled, and mean-across-study estimates ------------
+
+df_model_comparison_rmse <- 
+  model_rmse_by_study %>%
+  mutate(row_type = "study") %>%
+  bind_rows(model_rmse_overall) %>%
+  bind_rows(model_rmse_mean_study) %>%
+  mutate(
+    study = factor(
+      study,
+      levels = c(
+        "All studies pooled",
+        "Mean across studies",
+        study_order
+      )
+    ),
+    overall_label = case_when(
+      row_type == "overall pooled" ~ paste0("RMSE = ", sprintf("%.1f", rmse)),
+      row_type == "mean across studies" ~ paste0("RMSE = ", sprintf("%.1f", rmse)),
+      TRUE ~ NA_character_
+    ),
+    label_x = case_when(
+      row_type %in% c("overall pooled", "mean across studies") ~ rmse + 5,
+      TRUE ~ NA_real_
+    ),
+    label_hjust = case_when(
+      row_type %in% c("overall pooled", "mean across studies") ~ 0,
+      TRUE ~ NA_real_
+    )
+  ) %>% 
+  mutate(
+    model = factor(model, levels = c(
+      "Structure-averaged\nstrength",
+      "Posterior link\nprobability",
+      "Bayesian strength\n(SS priors)"
+    ))) 
+
+
+# --- Plot RMSE by study -------------------------------------------------------
+plot_rmse_by_study <- ggplot(
+  df_model_comparison_rmse,
+  aes(x = rmse, y = study, fill = model, color = model)
+) +
+  facet_wrap(~ model, nrow = 1) +
+  geom_errorbar(
+    aes(xmin = CI_low, xmax = CI_high),
+    height = 0.18,
+    linewidth = 0.3,
+    orientation = "y",
+    na.rm = TRUE
+  ) +
+  geom_col(
+    width = 0.65,
+    alpha = 0.85,
+    na.rm = TRUE
+  ) +
+  geom_text(
+    aes(x = label_x, label = overall_label, hjust = label_hjust),
+    size = 3,
+    color = "black",
+    na.rm = TRUE
+  ) +
+  coord_cartesian(clip = "off") +
+  scale_x_continuous(expand = c(0, 0)) +
+  scale_fill_manual(values = colors_models) +
+  scale_color_manual(values = colors_models) +
+  labs(
+    x = "Root mean squared error (RMSE)",
+    y = NULL
+  ) +
+  theme_classic() +
+  theme(
+    legend.position = "none",
+    strip.background = element_blank(),
+    strip.text = element_text(size = 10, face = "bold"),
+    axis.text.y = element_text(size = 8),
+    plot.margin = margin(7, 35, 5.5, 5.5)
+  )
+
+ggsave("plots/model_comparison_rmse.png", plot_rmse_by_study, dpi = 300, width = 12, height = 4)
+ggsave("plots/model_comparison_rmse.pdf", plot_rmse_by_study, width = 12, height = 4)
+
+
+# combine correlation and RMSE by study plots -------------------------------------
+
+plot_model_comparison <- plot_grid(
+  plot_r_by_study,
+  plot_rmse_by_study,
+  ncol = 1,
+  labels = c("a) Correlations", "b) Prediction error"),
+  label_size = 12,
+  label_fontface = "bold",
+  label_x = 0,
+  label_y = 1,
+  hjust = 0,
+  vjust = 1
+)
+
+plot_model_comparison <- ggdraw() +
+  draw_label(
+    "Model comparison",
+    x = 0,
+    y = 0.97,
+    fontface = "bold",
+    size = 16,
+    hjust = 0
+  ) +
+  draw_plot(
+    plot_model_comparison,
+    x = 0,
+    y = 0,
+    width = 1,
+    height = 0.93
+  )
+
+plot_model_comparison
+ggsave("plots/fig4_model_comparison.png", plot_model_comparison, dpi = 300, width = 9, height = 8)
+ggsave("plots/fig4_model_comparison.pdf", plot_model_comparison, width = 9, height = 8)
+
+# one row
+# plot_model_comparison <- plot_grid(
+#   plot_r_by_study,
+#   plot_rmse_by_study + theme(axis.text.y = element_blank()),
+#   ncol = 2,
+#   labels = c("a) Correlations", "b) Prediction error"),
+#   label_size = 12,
+#   label_fontface = "bold",
+#   label_x = 0,
+#   label_y = 1,
+#   hjust = 0,
+#   vjust = 1
+# )
+# 
+# plot_model_comparison <- ggdraw() +
+#   draw_label(
+#     "Model comparison",
+#     x = 0.11,
+#     y = 0.98,
+#     fontface = "bold",
+#     size = 14,
+#     hjust = 1
+#   ) +
+#   draw_plot(
+#     plot_model_comparison,
+#     x = 0,
+#     y = 0,
+#     width = 1,
+#     height = 0.93
+#   )
+# 
+# plot_model_comparison
+# ggsave("plots/model_comparison.png", plot_model_comparison, dpi = 300, width = 16, height = 6)
+
+
+```
+
+@fig-model_comparison_by_contingency summarizes predictive accuracy separately for positive, negative, and zero-contingency conditions. For positive and negative contingencies, structure-averaged causal strength and Bayesian causal power under SS priors provided the best fits, with structure-averaged strength yielding the lowest prediction error in both cases. Interestingly, for zero-contingency conditions, posterior link probability outperformed both strength-based models. This suggests that evidence about whether a causal link exists may be particularly relevant when the observed contingency is zero and learners are uncertain about the existence of such a link.
+
+
+```{r}
+#| fig-width: 8
+#| fig-height: 6
+#| label: fig-model_comparison_by_contingency
+#| fig-cap: "Predictive accuracy by contingency type."
+
+
+# -------------------------------------------------------------------------
+# Mean correlation across contingency types -------------------------------
+# -------------------------------------------------------------------------
+model_correlations_by_contingency_type <- model_predictions %>%
+  select(
+    study,
+    human,
+    sample_direction,
+    S1_pp_prediction,
+    SS_wc_prediction,
+    SI_mean_wc_prediction
+  ) %>%
+  pivot_longer(
+    cols = -c(study, human, sample_direction),
+    names_to = "model",
+    values_to = "prediction"
+  ) %>% 
+  filter(!is.na(human), !is.na(prediction)) %>%
+  mutate(
+    model = recode(
+      model,
+      S1_pp_prediction            = "Posterior link\nprobability",
+      SS_wc_prediction            = "Bayesian strength\n(SS priors)",
+      SI_mean_wc_prediction       = "Structure-averaged\nstrength"
+    )
+  ) %>%
+  mutate(
+    model = factor(model, levels = c(
+      "Structure-averaged\nstrength",
+      "Posterior link\nprobability",
+      "Bayesian strength\n(SS priors)"
+    ))) %>% 
+  mutate(
+    sample_direction = recode(
+      sample_direction,
+      "zero"            = "Zero\ncontingency",
+      "generative"            = "Positive\ncontingency",
+      "preventive"            = "Negative\ncontingency"
+    )
+  ) %>%
+  group_by(sample_direction, model) %>%
+  summarise(
+    n = n(),
+    # Always compute the point estimate when possible
+    r = cor(human, prediction, use = "pairwise.complete.obs"),
+    # cor.test() only for CI/p-value when n is large enough and both variables vary
+    test = list(
+      if (
+        n() >= 4 &&
+        sd(human, na.rm = TRUE) > 0 &&
+        sd(prediction, na.rm = TRUE) > 0
+      ) {
+        cor.test(human, prediction, method = "pearson")
+      } else {
+        NULL
+      }
+    ),
+    .groups = "drop"
+  ) %>%
+  mutate(
+    CI_low   = map_dbl(test, \(x) if (is.null(x)) NA_real_ else unname(x$conf.int[1])),
+    CI_high  = map_dbl(test, \(x) if (is.null(x)) NA_real_ else unname(x$conf.int[2]))
+  ) %>%
+  select(-test) %>%
+  arrange(model, desc(r))
+
+
+# Plot correlation across contingency type -----------------------------------------
+
+plot_r_by_contingency <- ggplot(
+  model_correlations_by_contingency_type,
+  aes(x = r, y = sample_direction, color = model)
+) +
+  facet_wrap( ~ model, nrow = 1) +
+  geom_errorbar(
+    aes(xmin = CI_low, xmax = CI_high),
+    height = 0.1,
+    linewidth = 0.6,
+    na.rm = TRUE,
+    orientation = "y"
+  ) +
+  geom_text(
+    aes(label = sprintf("r = %.2f", r)),
+    # nudge_x = -0.4,
+    x=0.1,
+    hjust = 0,
+    size = 3.5,
+    color = "black",
+    na.rm = TRUE
+  ) +
+  geom_point(na.rm = TRUE) +
+  coord_cartesian(xlim = c(0, 1), clip = "off") +
+  scale_color_manual(values = colors_models) +
+  scale_x_continuous(breaks = c(0,0.5,1), labels = c("0", "0.5", "1")) +
+  labs(
+    x = "Correlation with human ratings (Pearson r)",
+    y = ""
+  ) +
+  theme_classic() +
+  theme(
+    legend.position = "none",
+    strip.background = element_blank(),
+    strip.text = element_text(size = 10, face = "bold"),
+    axis.text.y = element_text(size = 12),
+    plot.margin = margin(5.5, 35, 5.5, 5.5)
+  )
+
+ggsave("plots/model_comparison_cor_by_contingency_type.png", plot_r_by_contingency, dpi = 300, width= 7, height = 2.5)
+ggsave("plots/model_comparison_cor_by_contingency_type.pdf", plot_r_by_contingency, width= 7, height = 2.5)
+
+
+
+# --- RMSE by contingency type ------------------------------------------------------------
+model_rmse_by_contingency <-
+  model_predictions %>%
+  select(
+    study,
+    human,
+    sample_direction,
+    S1_pp_prediction,
+    SS_wc_prediction,
+    SI_mean_wc_prediction
+  ) %>%
+  pivot_longer(
+    cols = -c(study, human, sample_direction),
+    names_to = "model",
+    values_to = "prediction"
+  )  %>%
+  filter(!is.na(human), !is.na(prediction)) %>%
+  mutate(
+    sq_error = (human - prediction)^2,
+    model = recode(
+      model,
+      S1_pp_prediction            = "Posterior link\nprobability",
+      SS_wc_prediction            = "Bayesian strength\n(SS priors)",
+      SI_mean_wc_prediction       = "Structure-averaged\nstrength"
+    )
+  ) %>%
+  mutate(
+    model = factor(model, levels = c(
+      "Structure-averaged\nstrength",
+      "Posterior link\nprobability",
+      "Bayesian strength\n(SS priors)"
+    ))) %>% 
+  mutate(
+    sample_direction = recode(
+      sample_direction,
+      "zero"            = "Zero\ncontingency",
+      "generative"            = "Positive\ncontingency",
+      "preventive"            = "Negative\ncontingency"
+    )
+  ) %>%
+  group_by(sample_direction, model) %>%
+  summarise(
+    mse = mean(sq_error, na.rm = TRUE),
+    mse_sd = sd(sq_error, na.rm = TRUE),
+    n = n(),
+    mse_se = mse_sd / sqrt(n),
+    rmse = sqrt(mse),
+    rmse_se = mse_se / (2 * rmse),
+    CI_low = rmse - 1.96 * rmse_se,
+    CI_high = rmse + 1.96 * rmse_se,
+    .groups = "drop"
+  ) %>%
+  arrange(model, rmse)
+
+# Plot RMSE across contingency types -----------------------------------------
+
+plot_rmse_by_contingency <- ggplot(
+  model_rmse_by_contingency,
+  aes(x = rmse, y = sample_direction, fill = model, color = model)
+) +
+  facet_wrap(~ model, nrow = 1) +
+  geom_errorbar(
+    aes(xmin = CI_low, xmax = CI_high),
+    height = 0.18,
+    linewidth = 0.3,
+    orientation = "y",
+    na.rm = TRUE
+  ) +
+  geom_col(
+    width = 0.65,
+    alpha = 0.85,
+    na.rm = TRUE
+  ) +
+  geom_text(
+    # aes(label = sprintf("RMSE = %.1f", rmse)),
+    aes(label = sprintf("%.1f", rmse)),
+    # nudge_x = 5,
+    x=0.15,
+    hjust = 0,
+    size = 3.5,
+    color = "black",
+    na.rm = TRUE
+  ) +
+  coord_cartesian(clip = "off") +
+  scale_x_continuous(expand = c(0, 0)) +
+  scale_fill_manual(values = colors_models) +
+  scale_color_manual(values = colors_models) +
+  labs(
+    x = "Root mean squared error (RMSE)",
+    y = NULL
+  ) +
+  theme_classic() +
+   theme(
+    legend.position = "none",
+    strip.background = element_blank(),
+    strip.text = element_text(size = 10, face = "bold"),
+    axis.text.y = element_text(size = 12),
+    plot.margin = margin(7, 35, 5.5, 5.5)
+  )
+
+
+ggsave("plots/model_comparison_rmse_by_contingency_type.png", plot_rmse_by_contingency, dpi = 300, width= 8, height = 2.5)
+ggsave("plots/model_comparison_rmse_by_contingency_type.pdf", plot_rmse_by_contingency, width= 8, height = 2.5)
+
+# combine correlation and RMSE by contingency -------------------------------------
+plot_model_comparison_by_contingency <- plot_grid(
+  plot_r_by_contingency,
+  plot_rmse_by_contingency,
+  nrow = 2,
+  labels = c("a) Correlation", "b) Prediction error"),
+  label_size = 12,
+  label_fontface = "bold",
+  label_x = 0,
+  label_y = 1.02,
+  hjust = 0,
+  vjust = 1
+)
+
+plot_model_comparison_by_contingency <- ggdraw() +
+  draw_label(
+    "Model comparison by contingency type",
+    x = 0.0,
+    y = 0.98,
+    fontface = "bold",
+    size = 16,
+    hjust = 0
+  ) +
+  draw_plot(
+    plot_model_comparison_by_contingency,
+    x = 0,
+    y = 0,
+    width = 1,
+    height = 0.94
+  )
+
+
+plot_model_comparison_by_contingency
+ggsave("plots/fig5_model_comparison_by_contingency.png", plot_model_comparison_by_contingency, dpi = 300, width = 8, height = 6)
+ggsave("plots/fig5_model_comparison_by_contingency.pdf", plot_model_comparison_by_contingency, width = 8, height = 6)
+
+
+```
+
+We conducted three robustness checks. First, to assess the stability of the model comparison, we ran a bootstrap analysis. Across 10,000 iterations, we sampled 12 studies with replacement from the full set of studies and tracked each model's correlation and RMSE. Structure-averaged strength had the highest correlation and lowest RMSE in more than 99% of bootstrap samples, indicating that its advantage was stable under resampling of studies. Second, we repeated the same model comparison using only the original nine studies reported in @perales2007models, without the additional studies added to the present data set. The results were similar: structure-averaged causal strength had the highest mean correlation across studies and the lowest mean RMSE, although its performance was very close to that of Bayesian causal power under SS priors. Posterior link probability again showed substantially larger prediction error and lowest correlation. Third, we compared the three main models with two further variants: conditional causal strength under $S_1$ with uniform priors and structure-averaged strength with SS priors. Conditional strength under $S_1$ with uniform priors yielded a slightly better numerical fit than structure-averaged strength with uniform priors, whereas structure-averaged strength with SS priors performed worse. Because estimating strength under $S_1$ corresponds to the limiting case in which the learner assigns very high probability to a causal link, this result is compatible with the possibility that participants often approached these tasks with a strong prior expectation that a causal relation existed and therefore primarily tried to assess its strength.
+
+Taken together, structure-averaged causal strength predicted human causal judgments well, suggesting that judgments of causal strength can reflect both causal magnitude and uncertainty about whether a causal relation exists.At the same time, posterior link probability provided the best account of zero-contingency judgments, which have historically motivated structure-based accounts [@Griffiths2005]. The additional analyses further indicate that conditional strength under $S_1$ remains an important limiting case, with uniform priors providing a slightly better numerical fit than the corresponding structure-averaged estimate and the SS-prior version. Overall, this pattern indicates that judgments of causal strength can integrate structural and parametric information, with their relative contribution depending on the evidential context.
+
+
+```{r}
+
+
+# -------------------------------------------------------------------------
+# Bbootstrap model-selection analysis
+# -------------------------------------------------------------------------
+# Goal:
+#   Estimate how often each model is the best-fitting model when studies
+#   are sampled with replacement.
+#
+# Metrics:
+#   r:    higher values indicate better fit.
+#   RMSE: lower values indicate better fit.
+# -------------------------------------------------------------------------
+
+set.seed(0815)
+
+B <- 10000 # number of siomulations
+
+models <- c(
+  "SI_mean_wc_prediction",
+  "S1_pp_prediction",
+  "SS_wc_prediction"
+)
+
+model_labels <- c(
+  SI_mean_wc_prediction = "Structure-averaged\nstrength",
+  S1_pp_prediction      = "Posterior link\nprobability",
+  SS_wc_prediction      = "Bayesian strength\n(SS priors)"
+)
+
+# -------------------------------------------------------------------------
+# Bootstrap dataset
+# -------------------------------------------------------------------------
+
+df_boot <- model_predictions %>%
+  select(
+    study,
+    human,
+    all_of(models)
+  ) %>%
+  filter(
+    !is.na(human),
+    if_all(all_of(models), ~ !is.na(.x))
+  )
+
+studies <- unique(df_boot$study)
+n_studies <- length(studies)
+
+# -------------------------------------------------------------------------
+# Helper functions
+# -------------------------------------------------------------------------
+
+safe_r <- function(x, y) {
+  ok <- complete.cases(x, y)
+  x <- x[ok]
+  y <- y[ok]
+  
+  if (length(x) < 4 || sd(x) == 0 || sd(y) == 0) {
+    return(NA_real_)
+  }
+  
+  cor(x, y)
+}
+
+rmse <- function(x, y) {
+  sqrt(mean((x - y)^2, na.rm = TRUE))
+}
+
+# -------------------------------------------------------------------------
+# Compute study-level fit values
+# -------------------------------------------------------------------------
+
+study_fit <- df_boot %>%
+  group_by(study) %>%
+  summarise(
+    across(
+      all_of(models),
+      list(
+        r = ~ safe_r(human, .x),
+        rmse = ~ rmse(human, .x)
+      ),
+      .names = "{.col}_{.fn}"
+    ),
+    .groups = "drop"
+  )
+
+r_cols <- paste0(models, "_r")
+rmse_cols <- paste0(models, "_rmse")
+
+study_r_matrix <- as.matrix(study_fit[, r_cols])
+study_rmse_matrix <- as.matrix(study_fit[, rmse_cols])
+
+colnames(study_r_matrix) <- models
+colnames(study_rmse_matrix) <- models
+
+# -------------------------------------------------------------------------
+# Bootstrap
+# -------------------------------------------------------------------------
+
+boot_r_values <- matrix(
+  NA_real_,
+  nrow = B,
+  ncol = length(models),
+  dimnames = list(NULL, models)
+)
+
+boot_rmse_values <- matrix(
+  NA_real_,
+  nrow = B,
+  ncol = length(models),
+  dimnames = list(NULL, models)
+)
+
+boot_r_winner <- character(B)
+boot_rmse_winner <- character(B)
+
+for (b in seq_len(B)) {
+  
+  sampled_studies <- sample(
+    seq_len(n_studies),
+    size = n_studies,
+    replace = TRUE
+  )
+  
+  r_b <- colMeans(
+    study_r_matrix[sampled_studies, , drop = FALSE],
+    na.rm = TRUE
+  )
+  
+  rmse_b <- colMeans(
+    study_rmse_matrix[sampled_studies, , drop = FALSE],
+    na.rm = TRUE
+  )
+  
+  boot_r_values[b, ] <- r_b
+  boot_rmse_values[b, ] <- rmse_b
+  
+  boot_r_winner[b] <- models[which.max(r_b)]
+  boot_rmse_winner[b] <- models[which.min(rmse_b)]
+}
+
+# -------------------------------------------------------------------------
+# Winner proportions
+# -------------------------------------------------------------------------
+
+bootstrap_winner_proportions <- bind_rows(
+  tibble(
+    metric = "Correlation",
+    winner = boot_r_winner
+  ),
+  tibble(
+    metric = "RMSE",
+    winner = boot_rmse_winner
+  )
+) %>%
+  count(metric, winner, name = "n_best") %>%
+  group_by(metric) %>%
+  complete(
+    winner = models,
+    fill = list(n_best = 0)
+  ) %>%
+  mutate(
+    B = B,
+    prop_best = n_best / B,
+    model = recode(winner, !!!model_labels),
+    model = factor(model, levels = unname(model_labels)),
+    metric = factor(metric, levels = c("Correlation", "RMSE"))
+  ) %>%
+  ungroup()
+
+# bootstrap_winner_proportions
+
+```
+
+# Discussion
+
+
+The present work conceptualizes judgment of causal strength as inference about expected causal influence under uncertainty. Existing accounts have typically focused on two distinct aspects of causal induction: assessing whether a causal link exists and how strong that link is if it exists. The present account integrates these inferences into a measure of causal strength that incorporates uncertainty about causal structure. On this view, the estimated strength of a candidate cause depends both on the probability that the link exists and on the strength it would have if it does exist. This yields structure-averaged causal strength, which is distinct from both posterior link probability and estimates of causal strength under an assumed link structure. The distinction matters because these quantities can produce similar qualitative patterns while making different quantitative predictions, as illustrated by zero-contingency cases in which all three Bayesian quantities imply nonzero causal estimates but for different reasons.
+
+The normative contribution is to specify the appropriate strength estimate when the underlying causal structure is uncertain. Posterior link probability captures one form of uncertainty: whether a causal relation exists. Bayesian estimates of causal power represent another level of uncertainty: how strong the relation is, conditional on a link structure. Structure-averaged causal strength combines these two forms of uncertainty while retaining causal strength as the target of inference. It is therefore not equivalent to posterior link probability, because it also depends on the expected magnitude of the link, and it is different from estimated causal strength under a presumed link, because it also depends on the probability that the link exists. The account therefore integrates structural inference and strength estimation within a common computational framework, treating both as relevant to judgments of causal strength when link existence is uncertain.
+
+
+
+
+The normative analysis also has direct implications for the descriptive interpretation of human causal judgments. Prior work has shown that different wordings of  can affect whether causal ratings align more closely with contingency-based or causal-power measures of strength [@buehner2003covariation]. Other work has emphasized that judgments about causal strength and judgments about causal structure can be dissociated empirically  @Lu2008bayesianpriors], even though structural quantities such as causal support and posterior link probability can predict ratings elicited with strength-related wording [@Griffiths2005; @griffiths2009theory].
+
+ The present analysis suggests a further point: even when participants are asked to judge causal strength, their responses need not reflect only the estimated value of a strength parameter under an assumed link structure. If the existence of the link is uncertain, then a judgment of expected causal influence can also reflect structural uncertainty. The same numerical response can therefore arise from different combinations of structural belief and conditional strength. A moderate rating, for example, may indicate that the learner believes a causal link exists but is weak, that the learner is uncertain whether a link exists at all, or that both sources of uncertainty jointly reduce the expected causal influence attributed to the candidate cause. This ambiguity is inherent in the structure of the inference problem itself and limits how directly causal ratings can be interpreted as estimates of a single causal-strength parameter.
+
+Structural uncertainty should matter descriptively when the existence of the candidate link is not already settled by task context, prior expectations, or observed evidence. It should matter less when the task pragmatically presupposes a causal relation, or when prior knowledge makes the candidate relation highly plausible. Under such conditions, judgments may approximate conditional strength because the posterior probability of the link is already high. Structural uncertainty should matter more when the data leave link existence genuinely open. Zero-contingency conditions are diagnostic in this respect because they separate absence of observed association from evidence for absence of causal structure. Likewise, weak evidence, high outcome density, plausible background causes, or low prior plausibility of the candidate link can make structural uncertainty central to the judgment.
+
+
+In sum, causal-strength judgments should not be treated as transparent reports of a single parameter. When the existence of a causal relation is uncertain, a rational estimate of causal influence depends jointly on the probability that the link exists and on the estimated strength of that link conditional on its existence. Structure-averaged causal strength formalizes this integration and thereby connects causal power theories with Bayesian accounts of structure induction. The empirical model comparison supports the descriptive relevance of this quantity across a broad set of causal-judgment studies, 
+
+
+# References
+
+<!-- References will auto-populate in the refs div below -->
+
+::: {#refs}
+:::
+
+# Appendix A: Deriving Causal Strength Under Structure Uncertainty {#sec-appendix-si}
+
+In Bayesian models of causal induction, observed data $D$ can inform both which causal structure generated the data and what parameter values are likely within each structure. This creates two levels of uncertainty. Parameter uncertainty concerns the strengths and base rates associated with a given structure. Structure uncertainty concerns which causal model should be used to interpret those parameters in the first place.
+
+The basic case illustrated in @fig-si contrasts a link structure, $S_1$, with a no-link structure, $S_0$, but the same logic extends to larger hypothesis spaces containing multiple possible causal structures [@griffiths2009theory]. By representing uncertainty over both structures and parameters, the Bayesian approach yields quantities that differ from covariation-based measures such as $\Delta P$ and from the standard Power PC model [@Cheng1997], which estimates causal power under the link structure $S_1$ using maximum likelihood.
+
+## Causal structures and Bayesian learning
+
+In the basic two-structure case, the hypothesis space contains two competing structures that might underlie the relationship between the candidate cause $C$ and the effect $E$ (@fig-si B). Structure $S_0$ represents the hypothesis that there is no causal relation: effect $E$ occurs independently of the candidate cause $C$, generated exclusively by the amalgam of background causes $A$. The competing structure hypothesis $S_1$ states that there is a causal relation, such that effect $E$ is a function of both the background causes $A$ and cause $C$.
+
+Each structure is associated with a set of parameters, denoted as $\theta$. For structure $S_1$, the parameters include the base rate of the target cause $b_c$, the causal strength $w_c$ of $C$ on $E$, and the influence $w_a$ of the background cause $A$. Structure $S_0$ states that there is no causal relationship between $C$ and $E$ and therefore includes only two parameters, the base rate of $C$, $b_c$ and the strength of the background cause $A$, $w_a$. 
+
+A common choice for the prior distributions is independent uniform Beta distributions over each structure’s parameters:
+
+$$
+\begin{aligned}
+w_a &\sim \operatorname{Beta}(1,1),\\
+b_c &\sim \operatorname{Beta}(1,1),\\
+w_c &\sim \operatorname{Beta}(1,1) \qquad \text{under } S_1.
+\end{aligned}
+$$
+
+These flat priors represent an absence of specific prior assumptions about the parameter values, but the framework also allows alternative parameter priors [@Lu2008bayesianpriors; @yeung2015identifying]. Appendix @sec-appendix-ss describes the sparse-and-strong priors used for the conditional strength model.
+
+Using Bayes’ theorem, the posterior probability distribution of each structure’s parameters conditional on the observed data is given by
+
+$$
+P(\theta\mid D;S_i)
+=
+\frac{
+P(D\mid\theta;S_i)\,
+P(\theta\mid S_i)
+}{
+P(D\mid S_i)
+}.
+$$ {#eq-posterior-theta}
+
+where $P(D\mid\theta;S_i)$ is the likelihood of the data given the parameter values, $P(\theta\mid S_i)$ is the prior distribution over parameters, and $P(D\mid S_i)$ is the marginal likelihood of the data under structure $S_i$.
+
+## Likelihood Computation
+
+The likelihood function specifies how probable the observed data are for a given set of parameter values under a particular causal structure. Under the link structure $S_1$, the effect $E$ depends on both the candidate cause $C$ and the background cause $A$. For generative relations, we assume a noisy-OR parameterization [@pearl1988probabilistic; @Cheng1997]. When the candidate cause is present, the candidate cause and the background cause provide independent opportunities to generate the effect:
+
+$$
+P(e\mid c;\theta,S_1,\mathrm{gen})
+=
+w_c+w_a-w_cw_a.
+$$ {#eq-noisy-or}
+
+Under this parameterization, $w_c$ represents the probability that the candidate cause generates an effect that would otherwise be absent.
+
+When the candidate cause is absent, the probability of the effect is determined solely by the background cause:
+
+$$
+P(e \mid \neg c; \theta,S_1) = w_a.
+$$ {#eq-background-effect}
+
+For preventive relations, we use the corresponding noisy-AND-NOT parameterization [@yuille2007noisy; @Griffiths2005]. When the candidate cause is present,
+
+$$
+P(e \mid c;\theta,S_1,\mathrm{prev})
+=
+w_a(1-w_c).
+$$ {#eq-noisy-and-not}
+
+Here, $w_c$ represents the probability that the candidate cause prevents an effect that would otherwise be generated by the background cause. In the absence of the candidate cause, the effect probability is again solely determined by the background cause. 
+
+<!-- Under both parameterizations, causal power corresponds to the maximum-likelihood estimate of the candidate cause’s strength $w_c$ under the assumed link structure and functional form [@Cheng1997; @Griffiths2005]. -->
+
+Under the no-link structure $S_0$, the effect is independent of the candidate cause and is generated solely by the background cause. Thus, $w_c$ is fixed to zero and
+
+$$
+P(e\mid c;\theta,S_0)
+=
+P(e\mid \neg c; \theta,S_0)
+=
+w_a .
+$$ {#eq-no-link-effect}
+
+Accordingly, the likelihood of the observed data under $S_0$ is
+
+$$
+\begin{aligned}
+P(D\mid\theta;S_0)
+={}&
+\left[(1-b_c)(1-w_a)\right]^{N(\neg c,\neg e)}
+\\
+&\times
+\left[(1-b_c)w_a\right]^{N(\neg c,e)}
+\\
+&\times
+\left[b_c(1-w_a)\right]^{N(c,\neg e)}
+\\
+&\times
+\left[b_cw_a\right]^{N(c,e)} .
+\end{aligned}
+$$ {#eq-likelihood-func-S0}
+
+For a noisy-OR (generative) link structure $S_1$, the likelihood is
+
+$$
+\begin{aligned}
+P(D\mid\theta;S_1)
+={}&
+\left[(1-b_c)(1-w_a)\right]^{N(\neg c,\neg e)}
+\\
+&\times
+\left[(1-b_c)w_a\right]^{N(\neg c,e)}
+\\
+&\times
+\left[b_c(1-w_c)(1-w_a)\right]^{N(c,\neg e)}
+\\
+&\times
+\left[b_c(w_c+w_a-w_cw_a)\right]^{N(c,e)} .
+\end{aligned}
+$$ {#eq-likelihood-func-S1-gen}
+
+For a noisy-AND-NOT (preventive) link structure, the first two terms remain unchanged because the effect probability in the absence of the candidate cause is still $w_a$. The last two terms are obtained by replacing $P(e\mid c;\theta,S_1)$ with $w_a(1-w_c)$ (@eq-noisy-and-not):
+
+$$
+\begin{aligned}
+P(D\mid\theta;S_1)
+={}&
+\left[(1-b_c)(1-w_a)\right]^{N(\neg c,\neg e)}
+\\
+&\times
+\left[(1-b_c)w_a\right]^{N(\neg c,e)}
+\\
+&\times
+\left[b_c(1-w_a(1-w_c))\right]^{N(c,\neg e)}
+\\
+&\times
+\left[b_cw_a(1-w_c)\right]^{N(c,e)} .
+\end{aligned}
+$$ {#eq-likelihood-func-S1-prev}
+
+@eq-likelihood-func-S0, @eq-likelihood-func-S1-gen, and @eq-likelihood-func-S1-prev specify the probability of the observed cell frequencies for fixed parameter values under the no-link, generative-link, and preventive-link structures, respectively. Bayesian inference additionally requires integrating each likelihood over the corresponding prior distribution of its parameters.
+
+## Marginal likelihoods and causal support
+
+The likelihoods in @eq-likelihood-func-S0, @eq-likelihood-func-S1-gen, and @eq-likelihood-func-S1-prev are conditional on fixed parameter values. Bayesian inference over structures instead requires the marginal likelihood of the data under each structure, obtained by averaging the likelihood over that structure’s prior distribution:
+
+$$
+P(D\mid S_i)
+=
+\int P(D\mid \theta;S_i)\,
+P(\theta\mid S_i)\,
+d\theta .
+$$ {#eq-marginal-likelihood}
+
+The marginal likelihood therefore represents how well structure $S_i$ predicts the observed data after accounting for uncertainty about its parameters. For structure $S_1$, the marginal likelihood is given by 
+
+$$
+P(D\mid S_1)
+=
+\iiint
+P(D\mid b_c,w_a,w_c;S_1)\,
+P(b_c,w_a,w_c\mid S_1)\,
+db_c\,dw_a\,dw_c,
+$$
+
+whereas for structure $S_0$ it is given by
+
+$$
+P(D\mid S_0)
+=
+\iint
+P(D\mid b_c,w_a;S_0)\,
+P(b_c,w_a\mid S_0)\,
+db_c\,dw_a.
+$$
+
+These marginal likelihoods enter both the posterior distribution over parameters within each structure and the posterior probabilities assigned to the competing structures. The relative evidence provided by the data for the link structure over the no-link structure can be summarized by the Bayes factor, $\mathrm{BF}_{10}=P(D\mid S_1)/P(D\mid S_0)$. @Griffiths2005 defined _causal support_ as the logarithm of this ratio, $\log \mathrm{BF}_{10}$, which quantifies how strongly the observed data favor the presence of a causal link.
+
+## Structure posteriors and posterior link probability
+
+The marginal likelihoods provide the basis for updating beliefs about the competing causal structures. Following @griffiths2009theory, we use the posterior probability of the link structure, $P(S_1\mid D)$, as the measure of structural evidence that a causal relation exists.
+
+The posterior probability of each structure, $P(S_1\mid D)$ and $P(S_0\mid D)$, is computed by multiplying each structure’s marginal likelihood by its prior probability and then normalizing across structures:
+
+$$
+P(S_i\mid D)
+=
+\frac{
+P(D\mid S_i)P(S_i)
+}{
+P(D)
+},
+$$ {#eq-posterior-structures}
+
+with
+
+$$
+P(D)
+=
+\sum_{i\in\{0,1\}} P(D\mid S_i)P(S_i)
+=
+P(D\mid S_0)P(S_0)
++
+P(D\mid S_1)P(S_1).
+$$
+
+Thus, in the two-structure case, the posterior link probability corresponds to the posterior probability of link structure $S_1$:
+
+$$
+P(S_1\mid D)
+=
+\frac{
+P(D\mid S_1)P(S_1)
+}{
+P(D\mid S_1)P(S_1)
++
+P(D\mid S_0)P(S_0)
+}.
+$$
+
+This quantity expresses the posterior probability that the observed data were generated by a structure containing a causal link from $C$ to $E$, rather than by the no-link structure. Unless denoted otherwise, we use uniform priors over the two structures, i.e. $P(S_1)=P(S_0)=0.5$.
+
+## Prediction for the model comparison
+
+For the model comparison, posterior link probability was mapped to the common judgment scale as a signed structural prediction. For generative tasks, the prediction was $100\,P(S_{1+}\mid D)$; for preventive tasks, it was $-100\,P(S_{1-}\mid D)$. For bidirectional tasks, the hypothesis space contained a no-link structure, $S_0$, a generative-link structure, $S_{1+}$, and a preventive-link structure, $S_{1-}$, with equal prior probabilities. The signed prediction was
+
+$$
+\hat y_{\mathrm{link}}
+=
+100\,P(S_{1+}\mid D)
+-
+100\,P(S_{1-}\mid D).
+$$
+
+Thus, posterior link probability contributed positively for generative evidence, negatively for preventive evidence, and zero for the no-link structure.
+
+## Structure-averaged strength: Estimating causal strength under structure uncertainty {#sec-si-strength}
+
+Structure-averaged strength formalizes the idea that observed data can be informative in two ways: they can indicate how strong a causal relation would be if a link exists, and they can indicate how likely it is that such a link exists at all. A strength estimate that ignores structure uncertainty conditions on $S_1$ and asks how strong $C$ is, assuming that $C$ is a cause of $E$. A structure-averaged estimate instead averages over both possibilities, assigning zero causal strength to the no-link structure and weighting the link-specific strength estimate by the posterior probability of $S_1$. This approach is analogous to other Bayesian model-averaged quantities, such as uncertainty-weighted probability estimates [@Meder2014] or estimates of causal attribution [@stephan2018preemption], but here the quantity of interest is causal strength.
+
+Under structure $S_0$, $C$ and $E$ are independent, and causal strength is fixed to zero:
+
+$$
+\begin{aligned}
+w_c^{S_0} &= 0 .
+\end{aligned}
+$$
+
+Under $S_1$, causal strength is represented by $w_c$, and is estimated by the posterior expectation
+
+$$
+w_c^{S_1}
+=
+\mathbb{E}[w_c\mid D;S_1]
+=
+\int_0^1
+w_c\,P(w_c\mid D;S_1)\,dw_c.
+$$
+
+<!-- # Equivalently (written in the same style as Meder’s Eq. A6, integrating over the joint posterior) -->
+
+<!-- $$ -->
+
+<!-- \begin{aligned} -->
+<!-- w_c^{S_1} -->
+<!-- &= \mathbb{E}[w_c\mid D; S_1] \ -->
+<!-- &= \iiint w_c\cdot P(\theta\mid D; S_1),d\theta \ -->
+<!-- &= \iiint w_c\cdot \frac{P(D\mid \theta; S_1)}{P(D\mid S_1)},P(\theta\mid S_1),d\theta , -->
+<!-- \end{aligned} -->
+<!-- $$ -->
+
+<!-- where $\theta=(b_c,w_c,w_a)$ under $S_1$ and $w_c$ denotes the $w_c$ component of $\theta$. -->
+
+To obtain a single strength estimate that accounts for uncertainty about whether a causal link exists at all, causal strength is averaged over structures. In the two-structure case, the resulting structure-averaged causal strength is
+
+$$
+\begin{aligned}
+\mathbb{E}[w_c\mid D]
+&=
+\sum_{i\in\{0,1\}}
+P(S_i\mid D)\,
+\mathbb{E}[w_c\mid D;S_i] \\
+&=
+P(S_1\mid D)\,w_c^{S_1}
++
+P(S_0\mid D)\cdot 0 \\
+&=
+P(S_1\mid D)\,w_c^{S_1}.
+\end{aligned}
+$$
+
+Put simply, structure-averaged strength equals the estimated causal strength under $S_1$ multiplied by the posterior probability of this causal structure, i.e. the posterior link probability $P(S_1\mid D)$. This estimate reflects both the inferred magnitude of the causal influence under $S_1$ and the posterior probability that a link exists. 
+
+The same model-averaging principle applies to larger hypothesis spaces. For example, if the hypothesis space contains a no-link structure $S_0$, a generative link structure $S_{1+}$, and a preventive link structure $S_{1-}$, the signed structure-averaged estimate is
+
+$$
+\begin{aligned}
+\mathbb{E}[w_c\mid D]
+&=
+\sum_{i\in\{0,1+,1-\}}
+P(S_i\mid D)\,
+\mathbb{E}[w_c\mid D;S_i] \\
+&=
+P(S_{1+}\mid D)\,w_c^{S_{1+}}
+-
+P(S_{1-}\mid D)\,w_c^{S_{1-}}
++
+P(S_0\mid D)\cdot 0 \\
+&=
+P(S_{1+}\mid D)\,w_c^{S_{1+}}
+-
+P(S_{1-}\mid D)\,w_c^{S_{1-}} .
+\end{aligned}
+$$
+
+Here, the no-link structure contributes zero strength, generative strength contributes positively, and preventive strength contributes negatively. More generally, the same expression applies to any hypothesis space containing multiple candidate causal structures.
+
+## Model implementation
+
+All model and analysis code is available at https://github.com/bmeder/causal_strength_structure_uncertainty. The R code uses Monte Carlo simulation to approximate the integrals by drawing $m = 10^7$ independent samples from the parameter priors. Under $S_1$, each sample consists of $\theta^{(k)}=(b_c^{(k)},w_c^{(k)},w_a^{(k)})$, with all three parameters drawn from independent uniform $\operatorname{Beta}(1,1)$ distributions. Under $S_0$, the free parameters are $b_c$ and $w_a$; $w_c$ is fixed to zero.
+
+The marginal likelihood of each structure is approximated by averaging the likelihood over prior samples:
+
+$$
+P(D\mid S_i)
+\approx
+\frac{1}{m}
+\sum_{k=1}^{m}
+P(D\mid \theta^{(k)};S_i).
+$$
+where each $\theta^{(k)}$ is one sample from the parameter prior. Under $S_1$, $\theta^{(k)}=(b_c^{(k)},w_c^{(k)},w_a^{(k)})$, with all three parameters drawn from independent $\operatorname{Beta}(1,1)$ distributions. Under $S_0$, the parameter vector contains only two free parameters, $b_c$ and $w_a$, because $w_c$ is fixed to zero.
+
+The posterior expectation under a fixed structure is computed by likelihood-weighted averaging over the same prior samples. For the link structure $S_1$, the posterior mean causal strength is approximated as
+
+$$
+\mathbb{E}[w_c\mid D;S_1]
+\approx
+\frac{
+\sum_{k=1}^{m}
+w_c^{(k)}
+P(D\mid\theta^{(k)};S_1)
+}{
+\sum_{k=1}^{m}
+P(D\mid\theta^{(k)};S_1)
+}.
+$$
+
+Finally, the structure-averaged estimate is computed by weighting the structure-specific estimates by the posterior structure probabilities. Since $w_c=0$ under $S_0$, this reduces to
+
+$$
+\mathbb{E}[w_c\mid D]
+=
+P(S_1\mid D)\,
+\mathbb{E}[w_c\mid D;S_1).
+$$
+
+
+
+# Appendix B: Estimating Causal Strength Under Sparse-and-Strong Priors {#sec-appendix-ss}
+
+The Bayesian estimate of causal strength conditional on the link structure depends on the prior distribution assigned to the strength parameters. Whereas the default implementation above uses independent uniform priors, the sparse-and-strong (SS) power model of @Lu2008bayesianpriors assumes systematic prior expectations about the organization of causal systems. Specifically, the SS priors favor explanations in which relatively few causes are effective and effective causes tend to have substantial strength. In the notation used here, $w_a$ denotes the strength of the background cause and $w_c$ the strength of the candidate cause, corresponding to $w_0$ and $w_1$, respectively, in @Lu2008bayesianpriors. We use the SS strength prior defined for inference conditional on the link structure $S_1$, rather than the augmented prior introduced for judgments about causal structure.
+
+## Sparse-and-strong (SS) priors
+
+Under $S_1$, the parameter vector is $\theta=(b_c,w_a,w_c)$, as in @sec-appendix-si. The sparse-and-strong (SS) prior changes the joint prior over the strength parameters $w_a$ and $w_c$, while the prior over the base rate of the candidate cause remains independent and uniform:
+
+$$
+b_c \sim \operatorname{Beta}(1,1).
+$$
+
+Thus, the full parameter prior under $S_1$ factorizes as
+
+$$
+P(\theta\mid S_1)
+=
+P(b_c)\,
+P(w_a,w_c\mid S_1).
+$$
+
+The joint prior over $(w_a,w_c)$ differs for generative and preventive relations because the two causal parameterizations imply different roles for the background and candidate causes. 
+
+## Generative relations
+
+For a noisy-OR (generative) relation, the background cause and candidate cause are both potential generators of the effect and therefore compete as alternative causal explanations. The SS prior favors configurations in which one cause is strong and the other is weak. Its density peaks at $(w_a,w_c)=(0,1)$, where the candidate cause is the sole strong cause, and at $(w_a,w_c)=(1,0)$, where the background cause is the sole strong cause.
+
+Following Equation 10 of @Lu2008bayesianpriors, the generative SS prior is given by
+
+$$
+P(w_a,w_c\mid S_1, \mathrm{gen})
+\propto
+e^{-\alpha w_a-\alpha(1-w_c)}
++
+e^{-\alpha(1-w_a)-\alpha w_c}.
+$$ {#eq-ss-prior-generative}
+
+The parameter $\alpha$ controls how strongly sparse-and-strong causal configurations are preferred. When $\alpha=0$, the prior is uniform over $w_a$ and $w_c$. As $\alpha$ increases, the prior becomes increasingly concentrated around $(0,1)$ and $(1,0)$. Following @Lu2008bayesianpriors, we use $\alpha=5$.
+
+## Preventive relations
+
+For a noisy-AND-NOT (preventive) relation, the background cause remains generative, whereas the candidate cause may prevent the effect. Consequently, the background and candidate causes do not compete as alternative generators. Because prevention can be expressed only when the effect would otherwise be generated, the prior favors a strong background cause, $w_a\approx 1$. It has one peak at $(w_a,w_c)=(1,1)$, corresponding to a strong background cause and a strong preventive candidate cause, and another at $(w_a,w_c)=(1,0)$, corresponding to a strong background cause and an ineffective candidate cause.
+
+Following Equation 11 of @Lu2008bayesianpriors, the preventive SS prior is
+
+$$
+P(w_a,w_c\mid S_1, \mathrm{prev})
+\propto
+e^{-\alpha(1-w_a)-\alpha(1-w_c)}
++
+e^{-\alpha(1-w_a)-\alpha w_c}.
+$$ {#eq-ss-prior-preventive}
+
+As in the generative case, $\alpha=0$ yields a uniform prior, whereas larger values increasingly concentrate prior density around the two favored configurations. We again use $\alpha=5$.
+
+## Posterior causal strength
+
+The SS prior is combined with the appropriate likelihood under $S_1$, using a noisy-OR parameterization for generative relations and a noisy-AND-NOT parameterization for preventive relations. The posterior distribution over the parameters is
+
+$$
+P(\theta\mid D;S_1)
+=
+\frac{
+P(D\mid\theta;S_1)\,
+P(\theta\mid S_1)
+}{
+P(D\mid S_1)
+}.
+$$
+
+The model prediction is the posterior mean of the candidate cause’s strength conditional on $S_1$:
+
+$$
+\mathbb{E}[w_c\mid D;S_1]
+=
+\int
+w_c\,
+P(\theta\mid D;S_1)\,
+d\theta .
+$$ {#eq-ss-posterior-strength}
+
+For a generative relation, $w_c$ represents the probability that the candidate cause generates an effect that would otherwise be absent. For a preventive relation, $w_c$ represents the probability that the candidate cause prevents an effect that would otherwise occur.
+
+## Model implementation
+
+We approximate the posterior expectation by direct Monte Carlo sampling from the SS prior. For each sample $k=1,\ldots,m$, we draw
+
+$$
+b_c^{(k)}\sim\operatorname{Beta}(1,1)
+$$
+
+and draw $(w_a^{(k)},w_c^{(k)})$ from the corresponding generative or preventive SS prior. The two terms in each prior are implemented as an equal-weight mixture of normalized truncated exponential distributions.
+
+For the generative prior, one mixture component concentrates probability near $(w_a,w_c)=(0,1)$ and the other near $(1,0)$. For the preventive prior, one component concentrates probability near $(1,1)$ and the other near $(1,0)$.
+
+Because the parameter samples are drawn directly from the corresponding normalized prior, no additional prior-density weights are required. The posterior mean is approximated by likelihood-weighted averaging:
+
+$$
+\mathbb{E}[w_c\mid D;S_1]
+\approx
+\frac{
+\sum_{k=1}^{m}
+w_c^{(k)}
+P(D\mid\theta^{(k)};S_1)
+}{
+\sum_{k=1}^{m}
+P(D\mid\theta^{(k)};S_1)
+}.
+$$
+
+The marginal likelihood under $S_1$ is approximated by
+
+$$
+P(D\mid S_1)
+\approx
+\frac{1}{m}
+\sum_{k=1}^{m}
+P(D\mid\theta^{(k)};S_1).
+$$
+# Appendix C: Generating predictions for the model comparison {#sec-appendix-model-comparison}
+
+For the model comparison reported in @sec-human-judgments-reanalysis, each model's predictions were generated using the observed cell frequencies from each experimental condition. Predictions were first computed on the unit interval and then mapped to the common judgment scale.  Model predictions were derived in accordance with the causal framing of the task and mapped to the used response scale. Generative predictions were multiplied by $100$, preventive predictions by $-100$. Bidirectional predictions for conditions in which judgments were given on a $-100$ to $+100$ scale were computed as signed combinations of generative and preventive components.
+
+## Posterior link probability
+
+Posterior link probability was used as the structural prediction, with predictions generated following @griffiths2009theory. For generative and preventive tasks, predictions were the posterior probability of the corresponding link structure relative to the no-link structure. For generative task framing, model prediction were given by
+
+$$
+\hat y = 100 \cdot P(S_{1+}\mid D).
+$$
+
+For preventive task framing, model prediction were given by
+
+$$
+\hat y = -100 \cdot P(S_{1-}\mid D).
+$$
+
+
+For bidirectional tasks, the hypothesis space contained three possible structures: a no-link structure, a generative-link structure, and a preventive-link structure. These structures were assigned equal prior probabilities. Predictions were mapped to the signed response scale by treating posterior probability assigned to a generative link as positive and posterior probability assigned to a preventive link as negative [@griffiths2009theory]: 
+
+$$
+\hat y = 100 \cdot P(S_{1+}\mid D) - 100 \cdot P(S_{1-}\mid D).
+$$
+
+
+### Bayesian causal power under sparse-and-strong (SS) priors
+
+For the Bayesian causal-power model with SS priors [@Lu2008bayesianpriors], predictions were the posterior mean causal strength conditional on the generative or preventive link structure $S_1$, depending on task framing. For generative framing, predictions were
+
+$$
+\hat y = 100 \cdot \mathbb{E}[w_c\mid D;S_{1+}]
+$$
+
+and for preventive framing
+
+$$
+\hat y = -100 \cdot \mathbb{E}[w_c\mid D;S_{1-}],
+$$
+
+respectively. For bidirectional tasks, following @Lu2008bayesianpriors the posterior mean strengths under the generative and preventive link structures were combined as signed quantities, weighted by their relative marginal likelihoods conditional on a link being present:
+
+$$
+\hat y
+=
+100 \cdot P(S_{1+}\mid D,S_1) \cdot
+\mathbb{E}[w_c\mid D;S_{1+}]
+-
+100 \cdot P(S_{1-}\mid D,S_1) \cdot
+\mathbb{E}[w_c\mid D;S_{1-}],
+$$
+
+where
+
+$$
+P(S_{1+}\mid D,S_1)
+=
+\frac{P(D\mid S_{1+})}
+{P(D\mid S_{1+})+P(D\mid S_{1-})}
+$$
+
+and analogously for $P(S_{1-}\mid D,S_1)$. 
+
+### Structure-averaged causal strength
+
+For structure-averaged strength, predictions incorporated uncertainty about whether a link existed. For generative and preventive tasks, predictions were
+
+$$
+\hat y =  100 \cdot P(S_{1+}\mid D) \cdot \mathbb{E}[w_c\mid D;S_{1+}]
+$$
+
+and
+
+$$
+\hat y = -100 \cdot P(S_{1-}\mid D) \cdot \mathbb{E}[w_c\mid D;S_{1-}],
+$$
+
+respectively. For bidirectional tasks, the hypothesis space contained $S_0$, $S_{1+}$, and $S_{1-}$, with equal structure priors. The signed prediction was
+
+$$
+\hat y = 100 \cdot P(S_{1+}\mid D) \cdot \mathbb{E}[w_c\mid D;S_{1+}]
+-
+100 \cdot P(S_{1-}\mid D) \cdot \mathbb{E}[w_c\mid D;S_{1-}]
++
+100 \cdot P(S_0\mid D)\cdot 0 .
+$$
+
+Thus, generative strength contributed positively, preventive strength negatively, and the no-link structure contributed zero.
+
+
+
+# Session Information {-}
+
+<button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#collapseOne">
+
+Session Information
+
+</button>
+
+:::: {#collapseOne .accordion-collapse .collapse}
+<div>
+
+```{r}
+sessionInfo()
+```
+
+</div>
+::::
