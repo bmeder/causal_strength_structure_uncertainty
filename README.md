@@ -13,14 +13,14 @@ The repository provides the materials required to reproduce the main model compa
 
 ### Manuscript and main analysis
 
-`2026 Causal strength under structure uncertainty.qmd`: Main Quarto manuscript. This is also the authoritative source for the current main analyses, including the primary comparison between:
+- `2026 Causal strength under structure uncertainty.qmd`: Main Quarto manuscript. Main source for the analyses and comparison between:
 
-1. structure-averaged causal strength.  
+1. structure-averaged causal strength  
 2. posterior link probability,
-3. Bayesian strength under the link structure with sparse-and-strong (SS) priors
+3. Bayesian strength under the link structure with sparse-and-strong (SS) priors.
 
 
-The manuscript uses:
+- `2026 Causal strength under structure uncertainty.html`: Rendered Quarto file, which uses :
 
 - `causal_strength_under_structure_uncertainty.bib` — bibliography
 - `causal_strength_under_structure_uncertainty.css` — custom styling for HTML output
