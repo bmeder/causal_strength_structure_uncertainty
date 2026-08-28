@@ -13,17 +13,8 @@ The repository provides the materials required to reproduce the main model compa
 
 ### Manuscript and main analysis
 
-- `2026 Causal strength under structure uncertainty.qmd`: Main Quarto manuscript. Main source for the analyses and comparison between:
-
-1. structure-averaged causal strength  
-2. posterior link probability,
-3. Bayesian strength under the link structure with sparse-and-strong (SS) priors.
-
-
-- `2026 Causal strength under structure uncertainty.html`: Rendered Quarto file, which uses :
-
-- `causal_strength_under_structure_uncertainty.bib` — bibliography
-- `causal_strength_under_structure_uncertainty.css` — custom styling for HTML output
+- `2026 Causal strength under structure uncertainty.qmd`: Main Quarto manuscript. Main source for the analyses and model comparison.
+- `2026 Causal strength under structure uncertainty.html`: Rendered Quarto file, which uses `causal_strength_under_structure_uncertainty.bib` (bibliography) and `causal_strength_under_structure_uncertainty.css` (custom styling for HTML output)
 
 ### Model implementations
 
@@ -34,7 +25,7 @@ The analyses and models are implemented in **R**. The analysis code uses package
 - `SS_strength_model_func.R`: Functions for Bayesian causal-strength estimation under an assumed causal-link structure using the sparse-and-strong (SS) priors considered by Lu et al. (2008).
 
 
-### Data and model comparison
+### Data for model comparison
 
 - `data/`: Contains the empirical data sets used for the model comparison. The data consist of contingency information and aggregate causal judgments reconstructed or obtained from previously published causal-learning studies. Contains main data file as well as individual data files containing additional info taking from the original publications (e.g. number of participants, question wording used to elicit causal judgements, used experimental design etc.)
 
@@ -58,7 +49,7 @@ Three additional analyses assess the robustness of the main model comparison.
 
 - `robustness_check_1_bootstrap.R`: Performs a study-level bootstrap with 10,000 resamples to assess the stability of the relative performance of the models across different samples of studies.
 
-- `robustness_check_2_model_comparison_Perales_Shanks_2007.R`:  Repeats the model comparison using only the original studies compiled by Perales and Shanks (2007), thereby assessing whether the results depend on the additional studies included in the present data set.
+- `robustness_check_2_model_comparison_Perales_Shanks_2007.R`: Repeats the model comparison using only the original studies compiled by Perales and Shanks (2007), thereby assessing whether the results depend on the additional studies included in the present data set.
 
 - `robustness_check_3_extended_model_comparison.R`: Extends the model comparison by including alternative combinations of structure and parameter priors. In addition to the three primary models, this analysis considers Bayesian strength under a link structure with uniform priors and structure-averaged strength with SS priors.
 
