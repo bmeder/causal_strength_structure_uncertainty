@@ -55,7 +55,7 @@ Three additional analyses assess the robustness of the main model comparison.
 
 
 ### Computational validation
-- `original matlab code SS priors Lu et al 2008/`: Contains the original MATLAB code associated with the sparse-and-strong prior implementation of Lu et al. (2008), retained as a reference for the R implementation. It also contains some checks, namely:
+- `original matlab code SS priors Lu et al 2008/`: Contains the original MATLAB code associated with the sparse-and-strong prior implementation of Lu et al. (2008), obtained from https://cvl.psych.ucla.edu/resources/. It also contains some checks, namely:
 
 - `SS_strength_model_func_all_sampling_methods.R`: Extended implementation of the SS-prior strength model supporting alternative numerical sampling methods.
 

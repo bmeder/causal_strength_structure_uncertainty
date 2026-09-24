@@ -146,7 +146,7 @@ likelihood_data_S1 <- function(data, theta)
     ((theta[,2]+theta[,3]-theta[,2]*theta[,3])*theta[,1])^data[4]
   
   # bc <- theta[,1]  # base rate of candidate cause, P(C)
-  # wc <- theta[,2]  # preventive strength of C
+  # wc <- theta[,2]  # generative strength of C
   # wa <- theta[,3]  # background generative strength
   # 
   # ((1-bc)*(1-wa))^data[1]*
@@ -466,7 +466,7 @@ S1_wa_pp <- function(data, S1_lik, theta)
 ##           data[,3] = N(C=1, E=0)
 ##           data[,4] = N(C=1, E=1)
 ##
-##        "m", number of bootstrap samples to be drawn
+##        "m", number of Monte Carlo samples drawn from the parameter priors
 ##
 ## Output: a data.frame (created from the pred matrix) with columns:
 ##
@@ -484,7 +484,7 @@ S1_wa_pp <- function(data, S1_lik, theta)
 ##    pEC_MLE     = P(E|C) (MLE from data)
 ##    pCE_MLE     = P(C|E) (MLE from data; “simple Bayes” from frequencies)
 ##
-##  Structure-marginal likelihoods (prior-free model evidence)
+##  Structure-marginal likelihoods ((model evidence before applying structure priors)
 ##    S0_marglik     = Monte-Carlo estimate of P(D|S0)
 ##    S1_marglik     = Monte-Carlo estimate of P(D|S1)
 ##    S0_logmarglik  = log P(D|S0)  (numerically stabilized)
