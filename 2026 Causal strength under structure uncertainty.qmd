@@ -39,13 +39,16 @@ author:
         city: Göttingen
         country: Germany
 
-abstract: "How should one estimate the magnitude of a causal influence when it is uncertain whether the causal link exists? We address this question using the framework of Bayesian causal induction. Existing accounts have primarily focused either on inference about causal structure or on estimation of causal strength under an assumed structure. We propose structure-averaged causal strength as a method for estimating causal strength under structure uncertainty. By averaging strength across alternative causal structures according to their posterior probabilities, the account provides a normative estimate that reflects uncertainty about both whether a causal relation exists and how strong it is. The account integrates structural inference and strength estimation within a computational framework that represents uncertainty about both strength and structure. Normatively, our analyses clarify how causal strength should be estimated when the existence of the causal relation itself remains uncertain. Empirically, structure-averaged strength provided accurate predictions of human judgments of causal influence across a broad set of published studies, suggesting that human causal judgments reflect uncertainty about both causal strength and causal structure. Together, our analyses show how inferences about causal structure shape judgments of causal strength under uncertainty."
+abstract: "How should a learner estimate the strength of a causal influence when it is uncertain whether the causal relation exists? We address this question using the framework of Bayesian causal induction. Existing accounts have primarily focused either on inference about causal structure or on estimation of causal strength under an assumed structure. We propose _structure-averaged causal strength_ as a method for estimating causal strength under structure uncertainty. By averaging causal strength across alternative structures according to their posterior probabilities, the account provides a strength estimate that reflects uncertainty about both whether a causal relation exists and how strong it is. Normatively, our analyses clarify how causal strength should be estimated when the existence of the causal relation itself remains uncertain. Empirically, structure-averaged strength provides accurate predictions of human judgments of causal influence across a broad set of published studies, suggesting that human causal judgments reflect uncertainty about both causal strength and causal structure. Together, our analyses show how inferences about causal structure shape judgments of causal strength under uncertainty."
 
 keywords:
   - causal learning
   - causal induction
   - causal structure
   - Bayesian models
+  - causal judgment
+  - causal strength
+  - computational modeling
 
 bibliography: causal_strength_under_structure_uncertainty.bib
 
@@ -111,12 +114,11 @@ source("meta_analysis_preprocessing.R") # reads data for meta analysis from vari
 
 # Overview
 
-This document provides the analyses and code required to reproduce the results shown in Figures 3–5 of the manuscript. Reproduction code for Figures 1 and 2 is provided separately in the corresponding R scripts (`figure1.R` and `figure2.R`, respectively). The complete project repository is available at https://github.com/bmeder/causal_strength_structure_uncertainty. This document was generated with Quarto and combines explanatory text with the R code used to conduct the analyses and generate the figures.
+This document provides the analyses and code required to reproduce the results shown in Figures 3–5 of the manuscript. Reproduction code for Figures 1 and 2 is provided separately in the corresponding R scripts (`figure1.R` and `figure2.R`, respectively). The complete project repository is available at [https://github.com/bmeder/causal_strength_structure_uncertainty](https://github.com/bmeder/causal_strength_structure_uncertainty). This document was generated with Quarto and combines explanatory text with the R code used to conduct the analyses and generate the figures.
 
-Model code for computing structure-averaged strength can be found in `structure_induction_func.R`. R code for Bayesian strength estimation under sparse-and-strong (SS) priors (Lu et al., 2008, Psychological Review) can be found in `SS_strength_model_func.R`. 
+Model code for computing structure-averaged strength and posterior link probability can be found in `structure_induction_func.R`. R code for Bayesian strength estimation under sparse-and-strong (SS) priors (Lu et al., 2008, Psychological Review) can be found in `SS_strength_model_func.R`. 
 
-
-
+Rendering this file can take some time because it runs Monte-Carlo simulations for generating the results shown in the figures.
 
 
 # Structure-Averaged Strength Under Zero Contingency

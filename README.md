@@ -66,12 +66,12 @@ Three additional analyses assess the robustness of the main model comparison.
 
 ### Archived files
 
-`_old/`: Contains outdated, exploratory, or superseded files retained to document the development of the project. These files are not required to reproduce the reported analyses.
+`_old/`: Contains outdated or superseded files which are not required to reproduce the reported analyses.
 
 ## Citation
 
 If you use the data or code in this repository, please cite the accompanying paper:
   
-- Meder, B., Osman, M., Stephan, S., & Waldmann, M. R. (2026). Causal strength under structure uncertainty.
+- Meder, B., Osman, M., Stephan, S., & Waldmann, M. R. (2026). Causal strength under structure uncertainty. _PsyArXiv_, [https://osf.io/preprints/psyarxiv/vuf57_v1](https://osf.io/preprints/psyarxiv/vuf57_v1)
   
 
