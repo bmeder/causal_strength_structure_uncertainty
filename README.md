@@ -2,7 +2,7 @@
 
 This repository contains the data, computational models, analysis code, and manuscript source for:
   
-Meder, B., Osman, M., Stephan, S., & Waldmann, M. R. (2026). Causal strength under structure uncertainty*
+Meder, B., Osman, M., Stephan, S., & Waldmann, M. R. (2026). Causal strength under structure uncertainty. _PsyArXiv_, [https://osf.io/preprints/psyarxiv/vuf57_v1](https://osf.io/preprints/psyarxiv/vuf57_v1)
   
 The project investigates how causal strength should be estimated when there is uncertainty about whether a causal relation exists. We compare different quantities derived from Bayesian causal induction, with a particular focus on *structure-averaged causal strength*, which integrates uncertainty about causal structure with uncertainty about causal strength.
 
